@@ -94,7 +94,13 @@
     margin-bottom:5px;letter-spacing:.3px}
   .imp p{margin:0;font-size:12.5px;line-height:1.75}
 
-  .load{padding:40px;text-align:center;color:var(--faint);font-size:12.5px}
+  .load{padding:44px 20px;text-align:center;color:var(--faint);font-size:12.5px;line-height:2}
+  .load b{display:block;color:var(--ink);font-size:14px;margin-bottom:10px}
+  .load i{font-style:normal;display:block;font-size:11.5px;
+    font-family:"Geist Mono",ui-monospace,monospace}
+  .load i.on{color:var(--accent);font-weight:700}
+  .dots::after{content:"";animation:d 1.2s steps(4,end) infinite}
+  @keyframes d{0%{content:""}25%{content:"·"}50%{content:"··"}75%{content:"···"}}
   .row{cursor:pointer}
   .row:hover{background:#eef2f8}
   .n{font-size:9.5px;color:var(--faint);font-weight:400;margin-left:5px}
@@ -170,8 +176,21 @@ const openGap = new Set();          // 관련낮음을 펼쳐 둔 축
 
 async function load(){
   const acc = $("#access").value;
-  $("#brief").innerHTML = '<div class="load">브리핑을 만드는 중…</div>';
+  // ★기다리는 동안 무엇을 하고 있는지 말해 준다.
+  //   모델이 붙으면 축마다 한 번씩 부르므로 5~25초가 걸린다.
+  const 단계 = ["축마다 근거를 찾는 중", "관련 낮은 근거를 걸러내는 중",
+               "카테고리별로 요약하는 중", "지난 기록과 대조하는 중"];
+  let si = 0;
+  $("#brief").innerHTML = `<div class="load"><b class="dots">브리핑을 만드는 중</b>
+    ${단계.map((s,i)=>`<i class="${i===0?"on":""}" data-s="${i}">${s}</i>`).join("")}
+    <i style="margin-top:10px;color:#c3c8d2">모델이 붙어 있으면 5~25초 걸립니다</i></div>`;
+  const timer = setInterval(() => {
+    si = Math.min(si + 1, 단계.length - 1);
+    document.querySelectorAll(".load i[data-s]").forEach(el =>
+      el.classList.toggle("on", +el.dataset.s === si));
+  }, 2500);
   const d = await (await fetch(`/api/brief?access=${encodeURIComponent(acc)}`)).json();
+  clearInterval(timer);
   if (d.error) { $("#brief").innerHTML = `<div class="load">오류 — ${esc(d.error)}</div>`; return; }
   $("#stamp").textContent = `${d.generated} 생성 · 다음 ${d.next}`;
   render(d);
@@ -278,7 +297,8 @@ async function askNow(){
   const q = $("#q").value.trim(); if (!q) return;
   const acc = $("#access").value;
   $("#brief").style.display = "none"; $("#ask").style.display = "";
-  $("#ask").innerHTML = '<div class="load">찾는 중…</div>';
+  $("#ask").innerHTML = `<div class="load"><b class="dots">근거를 찾는 중</b>
+    <i>권한으로 좁히고 · 벡터와 낱말 두 갈래로 찾아 · 순위를 합칩니다</i></div>`;
   const d = await (await fetch(`/api/ask?q=${encodeURIComponent(q)}&access=${encodeURIComponent(acc)}`)).json();
   if (d.error) { $("#ask").innerHTML = `<div class="load">오류 — ${esc(d.error)}</div>`; return; }
 
