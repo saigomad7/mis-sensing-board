@@ -15,7 +15,11 @@
 |---|---|---|
 | **`sensing_pipeline.py`** | 한 셀씩 실행하며 흐름을 보는 노트북. **사내 문서에 맞춰 손볼 로직**이 여기 있다 | Spyder 로 연다 |
 | `sensing_tools.py` | 배관 — `.env` · 모델호출 · DB · Milvus · 표보기 | 안 연다 |
-| `web/server.py` · `web/index.html` | 화면. **주제축은 `server.py` 의 `AXES`** | 축을 바꿀 때 |
+| `web/server.py` · `web/index.html` | 화면 — **로직은 없다.** 노트북 함수를 불러 실어 나른다 | 거의 안 연다 |
+
+> **축·하한·지시문은 전부 노트북 ⑨ 절에 있다.**
+> `AXES` · `CAT_FLOOR` · `SUMMARY_SYSTEM` · `build_axis` · `build_brief`.
+> 노트북에서 셀을 돌려 확인한 것이 곧 화면에 나오는 것이다.
 
 > 이전 폴더(`MIS_학습노트_260908`)와 **파일 이름이 겹치지 않게** 바꿨다.
 > 로직은 같고, 화면 개선이 더 들어가 있다.
@@ -40,6 +44,19 @@ python web/server.py          # 화면 → http://127.0.0.1:8700
 ```
 
 **코드는 손대지 않는다.**
+
+## 노트북 셀 구성
+
+```
+준비 · 0 표만들기
+① collect  ② save_raw  ③ normalize  ③-b 전후비교
+④ chunk    ④-b 저장본vs임베딩본       ⑤ embed   ⑤-b Milvus
+⑥-a bm25   ⑥-b search  ⑥-c 비교실험  ⑦ answer
+⑨-a 주제축  ⑨-b 축 하나  ⑨-c 지난 기록 대조  ⑨-d 화면으로 보기
+⑧ run_once · reset
+```
+
+**⑨ 절이 화면을 만드는 곳**이다. 셀에서 돌려 확인한 결과가 그대로 화면에 나온다.
 
 ## 화면이 만들어지는 순서
 

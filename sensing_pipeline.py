@@ -29,6 +29,7 @@
 # %% ═══════════════════════════════════════════════════════════════
 #  setup — 설정을 읽고 무엇이 붙었는지 본다
 # ══════════════════════════════════════════════════════════════════
+import datetime
 import json
 import math
 import re
@@ -854,6 +855,357 @@ else:
 
 print("\n★비용이 드는 곳은 여기 하나다. 그래서 ⑥ 이 잘 골라야 한다.")
 
+
+
+# %% ═══════════════════════════════════════════════════════════════
+#  ⑨-a 주제축 — 임원이 관심 갖는 테마. **여기만 고치면 화면이 바뀐다**
+# ══════════════════════════════════════════════════════════════════
+#  축 하나 = 임원 관심 테마 하나
+#  그 안에 **규격이 고정된 카테고리** 다섯을 둔다.
+#  카테고리가 고정이라 매주 같은 형식으로 읽을 수 있다 — 그게 정기 브리핑이다.
+
+AXES = [
+    {"no": 1, "name": "HBM · 고대역폭 메모리", "q": "HBM4 수율과 양산 일정"},
+    {"no": 2, "name": "증설 · 투자 판단", "q": "M16 증설 판단 근거와 전환 투자"},
+    {"no": 3, "name": "일반 DRAM · 수급", "q": "DRAM 공급 증가율과 가격 전망"},
+    {"no": 4, "name": "공정 · 표준", "q": "하이브리드 본딩 접합 기준"},
+    {"no": 5, "name": "장비 · 설비투자", "q": "반도체 장비 출하와 설비투자 동향"},
+]
+
+# 화면의 행 ← 자료 유형. **행이 곧 카테고리다.**
+ROW_OF = {"news": "시장", "official": "시장", "filing": "시장",
+          "report": "전망", "research": "전망",
+          "external_doc": "기준", "internal_doc": "사내", "mail": "논의"}
+ROW_ORDER = ["시장", "전망", "기준", "사내", "논의"]
+
+# ★비었을 때 뭐라고 말할지 — **공백 자체가 정보다**
+NONE_TEXT = {
+    "시장": "이 축에 걸린 외부 뉴스·공시가 없습니다.",
+    "전망": "이 축을 다룬 증권사·기관 자료가 없습니다.",
+    "기준": "관련 표준·협회 자료가 없습니다.",
+    "사내": "★이 축에 대한 사내 문서가 없습니다 — 대응이 없거나 아직 안 올라온 것입니다.",
+    "논의": "관련 메일·회의록이 없습니다.",
+}
+
+CHIP = {"news": "뉴스", "official": "공식", "filing": "공시", "report": "리포트",
+        "research": "기관", "external_doc": "표준", "internal_doc": "사내", "mail": "메일"}
+TIER = {"internal_doc": "t1", "filing": "t1", "official": "t1", "mail": "t4"}
+
+CAT_FLOOR = 0.55     # 그 축 1위 대비 이 비율 미만인 근거는 요약에서 뺀다
+CAT_MAX = 4          # 한 카테고리에 최대 몇 건까지 묶을까
+
+print("축 %d개 · 카테고리 %s" % (len(AXES), " · ".join(ROW_ORDER)))
+for a in AXES:
+    print("  [%d] %-22s ← %s" % (a["no"], a["name"], a["q"]))
+
+
+# %% ═══════════════════════════════════════════════════════════════
+#  ⑨-b 축 하나 만들기 — 하한 → 카테고리 → 요약
+# ══════════════════════════════════════════════════════════════════
+#  ★왜 하한을 두나
+#    빈칸을 남기지 않으려고 무관한 근거로 채우면, 그 위에 만든 요약이
+#    **없는 이야기를 지어낸다.** 임원은 그 문장을 그대로 읽는다.
+#    실측: HBM 축에 장비 출하 통계(0.47)를 넣으면
+#          "기준: 국내 장비 출하가 18% 늘었다" 가 되어 HBM 표준 이야기로 읽힌다.
+#
+#  ★질의응답은 반대다
+#    ⑥ search() 는 유형별 몫을 쓴다. 사용자가 직접 읽고 판단하기 때문이다.
+
+SUMMARY_SYSTEM = """자료를 카테고리별로 한 줄씩 요약하고, 축 전체를 판단합니다.
+
+규칙
+1. 아래 [근거] 에 적힌 내용만 씁니다. 없는 사실·수치를 지어내지 않습니다.
+2. 카테고리마다 **한 문장**, 40~90자. 여러 건이면 **묶어서** 한 문장으로.
+   서로 어긋나는 내용이면 "…인 반면 …" 처럼 **양쪽을 다 적습니다.**
+3. `축:` 은 요약이 아니라 **판단**입니다. 다음 순서로 봅니다.
+   ⑴ 사내 근거와 외부 근거가 **어긋나는 곳**이 있으면 그것을 먼저 적습니다.
+   ⑵ 어긋남이 없으면 **무엇이 관건인지** 한 문장으로 적습니다.
+   60~110자. 임원이 읽고 무엇을 결정해야 할지 알 수 있어야 합니다.
+4. `변화:` 는 [지난 기록] 이 있을 때만 씁니다. 지난번과 **달라진 점**만 적습니다.
+   달라진 것이 없으면 "없음" 이라고만 합니다.
+5. 정확히 이 형식으로만 답합니다. 다른 말을 붙이지 않습니다.
+
+시장: …
+전망: …
+기준: …
+사내: …
+논의: …
+축: …
+변화: …
+
+근거가 없는 카테고리는 그 줄을 통째로 뺍니다.
+★특히 `사내:` 가 없으면 `축:` 에 "사내 대응 문서가 없다" 는 점을 반드시 적습니다."""
+
+
+def summarize(groups, last=None):
+    """카테고리별 조각 묶음 → {카테고리: 한 줄, "축": …, "변화": …}
+
+    ★축 하나당 모델을 **한 번만** 부른다.
+      카테고리마다 따로 부르면 축 5 × 카테고리 5 = 25번이 된다.
+    ★축 줄은 카테고리 요약을 다시 요약한 것이 아니다.
+      같은 호출에서 **원문 조각**을 보고 만든다 — 두 번 압축하면 충돌을 못 잡는다.
+    """
+    if not groups:
+        return {}
+    블록 = []
+    for label in ROW_ORDER:
+        hs = groups.get(label) or []
+        if not hs:
+            continue
+        줄 = ["%s:" % label]
+        for i, h in enumerate(hs, 1):
+            줄.append("  [%d] %s · %s — %s" % (
+                i, h["org"] or "-", (h["date"] or "")[:10],
+                (h["body"] or "").replace("\n", " ")[:260]))
+        블록.append("\n".join(줄))
+
+    프롬프트 = "[근거]\n" + "\n\n".join(블록)
+    if last:
+        프롬프트 += "\n\n[지난 기록]\n" + last
+    text = tools.generate(SUMMARY_SYSTEM, 프롬프트, CFG)
+
+    if not text:                                  # 모델이 없으면 — 첫 조각을 줄여 쓴다
+        out = {k: ((hs[0]["body"] or "").replace("\n", " ")[:90])
+               for k, hs in groups.items()}
+        top = groups.get("사내") or next(iter(groups.values()))
+        out["축"] = (top[0]["body"] or "").replace("\n", " ")[:90]
+        out["_raw"] = True                        # ★요약이 아니라 원문 조각이다
+        return out
+
+    out = {}
+    for 줄 in text.splitlines():
+        if ":" not in 줄:
+            continue
+        k, v = 줄.split(":", 1)
+        if k.strip() in ROW_ORDER or k.strip() in ("축", "변화"):
+            out[k.strip()] = v.strip()
+    return out
+
+
+def build_axis(ax, access="전사", days=14, used=None, last=None):
+    """축 하나 → 화면 한 장.
+
+    ★해석(뉴스·리포트·기관)은 먼저 잡은 축이 가져간다 — 같은 뉴스가
+      다섯 축에 반복되면 임원이 신뢰를 잃는다.
+    ★사실(사내문서·공시·기업공식)은 여러 축에서 근거가 되므로 중복을 허용한다.
+    """
+    hits = search(ax["q"], k=16, access=access)
+    if not hits:
+        return {**ax, "rows": [], "lead": "이번 기간에 이 축에 걸린 근거가 없습니다.",
+                "change": "", "raw": False, "count": 0, "new": 0, "cont": 0,
+                "dropped": 0, "dup": 0, "gaps": ROW_ORDER, "empty": True, "move": 0}
+
+    바닥 = hits[0]["score"] * CAT_FLOOR
+    used = used if used is not None else set()
+    groups, low, dropped, dup = {}, {}, 0, 0
+
+    for h in hits:
+        label = ROW_OF.get(h["mtype"], "시장")
+        if h["score"] < 바닥:
+            # ★버리지 않는다. 요약에 안 넣을 뿐 '관련 낮음' 으로 남긴다.
+            dropped += 1
+            if len(low.get(label, [])) < 3:
+                low.setdefault(label, []).append(h)
+            continue
+        사실 = h["mtype"] in ("internal_doc", "filing", "official")
+        if not 사실 and h["id"] in used:
+            dup += 1
+            continue
+        if len(groups.get(label, [])) >= CAT_MAX:
+            continue
+        groups.setdefault(label, []).append(h)
+        if not 사실:
+            used.add(h["id"])
+
+    if not groups:
+        return {**ax, "rows": [], "lead": "이번 기간에 볼 만한 근거가 없습니다.",
+                "change": "", "raw": False, "count": 0, "new": 0, "cont": 0,
+                "dropped": dropped, "dup": dup, "gaps": ROW_ORDER,
+                "empty": True, "move": 0}
+
+    summary = summarize(groups, last)
+    raw = summary.pop("_raw", False)
+
+    def _srcs(hs):
+        return [{"chip": CHIP.get(h["mtype"], h["mtype"]), "tier": TIER.get(h["mtype"], ""),
+                 "org": h["org"] or "-", "date": (h["date"] or "")[5:], "score": h["score"],
+                 "body": (h["body"] or "").replace("\n", " ")[:200]} for h in hs]
+
+    # ★카테고리 다섯 줄을 **항상** 만든다. 없으면 없다고 말한다.
+    #   조용히 빠지면 "이 축에 우리 문서가 없다" 는 사실이 가려진다.
+    rows = []
+    for label in ROW_ORDER:
+        hs, lo = groups.get(label), low.get(label) or []
+        if hs:
+            rows.append({"label": label, "state": "ok", "n": len(hs), "raw": raw,
+                         "text": summary.get(label) or (hs[0]["body"] or "")[:90],
+                         "srcs": _srcs(hs), "low": _srcs(lo)})
+        elif lo:
+            rows.append({"label": label, "state": "low", "n": 0, "raw": False,
+                         "text": "요약할 만큼 관련 있는 근거가 없습니다 (관련 낮음 %d건, 최고 %.2f)"
+                                 % (len(lo), lo[0]["score"]),
+                         "srcs": [], "low": _srcs(lo)})
+        else:
+            rows.append({"label": label, "state": "none", "n": 0, "raw": False,
+                         "text": NONE_TEXT[label], "srcs": [], "low": []})
+
+    쓴것 = sum(len(v) for v in groups.values())
+    fresh = sum(1 for v in groups.values() for h in v if is_fresh(h["date"], days))
+    change = (summary.get("변화") or "").strip()
+    change = "" if change in ("없음", "-", "") else change
+
+    # ★변화가 큰 축이 위로 와야 한다. 임원이 스크롤하지 않게.
+    move = (100 if change else 0) + fresh * 10 + round(hits[0]["score"] * 10)
+
+    return {**ax, "rows": rows, "lead": summary.get("축") or "판단할 근거가 부족합니다.",
+            "change": change, "raw": raw, "count": 쓴것, "new": fresh,
+            "cont": 쓴것 - fresh, "dropped": dropped, "dup": dup,
+            "gaps": [r["label"] for r in rows if r["state"] != "ok"],
+            "empty": False, "move": move}
+
+
+def is_fresh(d, days=14):
+    if not d:
+        return False
+    try:
+        from datetime import date
+        y, m, dd = map(int, str(d)[:10].split("-"))
+        return (date.today() - date(y, m, dd)).days <= days
+    except Exception:
+        return False
+
+
+한축 = build_axis(AXES[0], access="제한")
+
+print("[%d] %s   근거 %d · 제외 %d · 중복 %d" % (
+    한축["no"], 한축["name"], 한축["count"], 한축["dropped"], 한축["dup"]))
+print("  축 판단 : %s%s" % (한축["lead"][:76], "  ★요약 아님" if 한축["raw"] else ""))
+print()
+for r in 한축["rows"]:
+    표시 = {"ok": "  ", "low": "▸ ", "none": "· "}[r["state"]]
+    print("  %s%-4s %-5s %s" % (표시, r["label"], "%d건" % r["n"] if r["n"] else "  -",
+                               r["text"][:56]))
+print("\n  ▸ = 관련 낮음(요약엔 안 넣지만 버리지 않음) · · = 그 유형 자료가 없음")
+
+
+# %% ═══════════════════════════════════════════════════════════════
+#  ⑨-c 지난 기록과 대조 — **무엇이 달라졌나**
+# ══════════════════════════════════════════════════════════════════
+#  ★마켓 센싱의 핵심은 "지금 무엇이 있나" 가 아니라 "무엇이 달라졌나" 다.
+#    축 요약을 매번 남겨 두고, 다음 번에 함께 넘겨 비교하게 한다.
+#    같은 호출에 얹으므로 **회차가 늘어도 모델 호출은 축당 1번**이다.
+
+conn.executescript("""
+CREATE TABLE IF NOT EXISTS briefs(
+  id TEXT PRIMARY KEY, made TEXT, axis INTEGER, name TEXT,
+  access TEXT, lead TEXT, cats TEXT);
+CREATE INDEX IF NOT EXISTS briefs_axis ON briefs(axis, made);
+""")
+conn.commit()
+
+
+def last_record(axis_no, access):
+    """이 축의 **직전 기록**. 없으면 None."""
+    r = conn.execute("SELECT made, lead, cats FROM briefs WHERE axis=? AND access=?"
+                     " ORDER BY made DESC LIMIT 1", (axis_no, access)).fetchone()
+    if not r:
+        return None
+    cats = json.loads(r["cats"] or "{}")
+    return "\n".join(["(%s 기록)" % r["made"][:10], "축: %s" % r["lead"]]
+                     + ["%s: %s" % (k, v) for k, v in cats.items()])
+
+
+def save_record(ax, access):
+    """이번 결과를 남긴다. 같은 날 같은 축은 덮어쓴다."""
+    made = time.strftime("%Y-%m-%dT%H:%M:%S")
+    conn.execute("INSERT OR REPLACE INTO briefs(id,made,axis,name,access,lead,cats)"
+                 " VALUES(?,?,?,?,?,?,?)",
+                 ("%s|%d|%s" % (made[:10], ax["no"], access), made, ax["no"],
+                  ax["name"], access, ax["lead"],
+                  json.dumps({r["label"]: r["text"] for r in ax["rows"]},
+                             ensure_ascii=False)))
+    conn.commit()
+
+
+def build_brief(access="전사", days=14, save=True):
+    """축 전부 → 브리핑 한 장. **변화가 큰 축이 위로.**"""
+    t0 = time.time()
+    used = set()                                  # 해석 근거를 축끼리 나눠 갖게
+    axes = []
+    for a in AXES:
+        ax = build_axis(a, access, days, used=used, last=last_record(a["no"], access))
+        axes.append(ax)
+        if save and not ax["empty"]:
+            save_record(ax, access)
+
+    axes.sort(key=lambda x: -x["move"])
+    for i, ax in enumerate(axes, 1):
+        ax["rank"] = i
+
+    tot = conn.execute("SELECT COUNT(*) FROM docs").fetchone()[0]
+    inside = conn.execute("SELECT COUNT(*) FROM docs WHERE mtype IN"
+                          " ('internal_doc','mail')").fetchone()[0]
+    new_docs = sum(1 for r in conn.execute("SELECT date FROM docs")
+                   if is_fresh(r["date"], days))
+    model = conn.execute("SELECT model FROM chunks WHERE vec IS NOT NULL LIMIT 1").fetchone()
+    회차 = conn.execute("SELECT COUNT(DISTINCT substr(made,1,10)) FROM briefs"
+                      " WHERE access=?", (access,)).fetchone()[0]
+    return {
+        "generated": time.strftime("%Y-%m-%d %H:%M"),
+        "next": (datetime.date.today() + datetime.timedelta(days=7)).isoformat(),
+        "period": "%s ~ %s" % ((datetime.date.today()
+                                - datetime.timedelta(days=days)).isoformat(),
+                               datetime.date.today().isoformat()),
+        "access": access, "axes": axes, "runs": 회차,
+        "changed": [a["name"] for a in axes if a["change"]],
+        "no_inside": [a["name"] for a in axes
+                      if not a["empty"] and "사내" in a["gaps"]],
+        "empty": [a["name"] for a in axes if a["empty"]],
+        "kpi": {"new": new_docs, "cont": tot - new_docs,
+                "axes": len([a for a in axes if not a["empty"]]),
+                "docs": tot, "inside": inside, "outside": tot - inside},
+        "model": (model["model"] if model else "-"),
+        "live": bool(CFG.get("EMBED_BASE_URL") and CFG.get("EMBED_MODEL")),
+        "llm": bool(CFG.get("LLM_BASE_URL") and CFG.get("LLM_MODEL")),
+        "ms": int((time.time() - t0) * 1000),
+    }
+
+
+브리핑 = build_brief(access="부서")
+축표 = tools.table([{k: a[k] for k in
+                   ("rank", "no", "name", "count", "dropped", "dup", "new", "move")}
+                  for a in 브리핑["axes"]], cut=0)          # ★변수 탐색기
+
+print("회차 %d · %dms" % (브리핑["runs"], 브리핑["ms"]))
+print("  달라진 축      : %s" % (브리핑["changed"] or "없음 (기록이 쌓이면 뜬다)"))
+print("  사내 문서 없는 축: %s" % (브리핑["no_inside"] or "없음"))
+print()
+tools.show(축표)
+print("\n★이 셀을 한 번 더 돌려 보라. 두 번째부터 '변화' 가 잡힌다(모델이 있을 때).")
+
+
+# %% ═══════════════════════════════════════════════════════════════
+#  ⑨-d 화면으로 보기
+# ══════════════════════════════════════════════════════════════════
+#  터미널에서 —
+#      python web/server.py     →  http://127.0.0.1:8700
+#
+#  ★서버는 이 노트북을 그대로 불러 위 함수들을 쓴다.
+#    여기서 AXES·CAT_FLOOR·SUMMARY_SYSTEM 을 고치면 화면에도 그대로 반영된다.
+#    로직이 두 곳에 있지 않다.
+
+for a in 브리핑["axes"]:
+    표시 = "★" if a["change"] else " "
+    print("%s %d위 [%d] %-22s 근거%2d 제외%2d" % (
+        표시, a["rank"], a["no"], a["name"][:22], a["count"], a["dropped"]))
+    print("      %s" % a["lead"][:80])
+    보임 = [r for r in a["rows"] if r["state"] == "ok" or r["label"] == "사내"]
+    접힘 = [r["label"] for r in a["rows"] if r not in 보임]
+    for r in 보임:
+        print("        %-4s %s" % (r["label"], r["text"][:66]))
+    if 접힘:
+        print("        (접힘) %s 근거 없음" % " · ".join(접힘))
+    print()
 
 # %% ═══════════════════════════════════════════════════════════════
 #  ⑧ run_once — 새 문서가 들어오면 이 셀 하나
