@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI Intel Hub — 주제축 브리핑</title>
+<style>
+  /* rev07 시안의 색과 짜임을 그대로 옮겼다 —
+     흰 바탕 · 얇은 테두리 · 주황 강조 · 큰 모서리 */
+  :root{--bg:#fbfcfe;--card:#ffffff;--tint:#f7f9fc;--line:rgba(13,20,33,.09);
+    --line2:rgba(13,20,33,.16);--div:rgba(13,20,33,.055);
+    --ink:#0b0e16;--mut:#3a4150;--faint:#6a7280;
+    --accent:#ff7a00;--accent-soft:#fff3e8;--accent-sel:#ffe1bf;
+    --blue:#2540b8;--blue-soft:#e7e6ff;--good:#00c48c;--strong:#e60012;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Noto Sans KR",Pretendard,ui-sans-serif,system-ui,sans-serif;}
+  .wrap{max-width:1000px;margin:0 auto;padding:18px 16px 60px}
+
+  .bar{display:flex;align-items:center;gap:12px;padding:13px 18px;background:rgba(255,255,255,.72);
+    border:1px solid var(--line);border-bottom:none;border-radius:18px 18px 0 0;flex-wrap:wrap}
+  .logo{font-weight:700;font-size:13.5px;letter-spacing:-.2px}
+  .logo span{color:var(--accent)}
+  .nav{display:flex;gap:2px;margin-left:8px;flex-wrap:wrap}
+  .nav i{font-style:normal;font-size:11.5px;color:var(--faint);padding:5px 10px;
+    border-radius:8px;cursor:pointer;user-select:none}
+  .nav i.on{background:var(--accent-soft);color:var(--accent);font-weight:700}
+  .when{margin-left:auto;font-size:11px;color:var(--faint);
+    font-family:"Geist Mono",ui-monospace,monospace;display:flex;gap:8px;align-items:center}
+  .sel{font-size:11px;border:1px solid var(--line2);border-radius:8px;padding:4px 8px;
+    background:var(--card);color:var(--mut);font-family:inherit}
+  .panel{background:var(--bg);border:1px solid var(--line);border-radius:0 0 18px 18px;padding:18px}
+
+  .h{display:flex;align-items:baseline;gap:10px;margin:0 0 4px;flex-wrap:wrap}
+  .h b{font-size:19px;letter-spacing:-.3px}
+  .h em{font-style:normal;font-size:11.5px;color:var(--faint)}
+  .lede{font-size:12.5px;color:var(--mut);line-height:1.75;margin:0 0 16px}
+  .lede b{color:var(--ink)}
+
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+  .kpi u{display:block;text-decoration:none;font-size:10.5px;color:var(--faint);margin-bottom:5px}
+  .kpi b{display:block;font-size:20px;letter-spacing:-.5px;line-height:1.1}
+  .kpi s{display:block;text-decoration:none;font-size:10.5px;color:var(--mut);margin-top:5px}
+  .kpi.up b{color:var(--strong)} .kpi.dn b{color:var(--good)}
+
+  .axis{background:var(--card);border:1px solid var(--line);border-radius:16px;
+    margin-bottom:10px;overflow:hidden}
+  .axis-h{display:flex;align-items:center;gap:10px;padding:13px 16px;cursor:pointer;flex-wrap:wrap}
+  .axis-h:hover{background:var(--tint)}
+  .no{width:22px;height:22px;border-radius:7px;background:var(--tint);border:1px solid var(--line);
+    font-size:10.5px;color:var(--faint);display:flex;align-items:center;justify-content:center;
+    font-weight:700;flex:none}
+  .axis-h b{font-size:14px;letter-spacing:-.2px}
+  .tag{font-size:10px;padding:3px 8px;border-radius:999px;font-weight:700;letter-spacing:.2px}
+  .tag.new{background:var(--accent-sel);color:#8a4200}
+  .tag.cont{background:var(--blue-soft);color:var(--blue)}
+  .tag.gone{background:var(--tint);color:var(--faint)}
+  .cnt{margin-left:auto;font-size:10.5px;color:var(--faint);
+    font-family:"Geist Mono",ui-monospace,monospace}
+  .axis-b{padding:0 16px 14px;border-top:1px solid var(--div)}
+  .lead{font-size:13px;line-height:1.8;margin:12px 0;letter-spacing:-.1px}
+  .lead b{background:linear-gradient(transparent 62%,var(--accent-sel) 62%)}
+
+  .rows{display:grid;gap:7px}
+  .row{display:grid;grid-template-columns:52px 1fr auto;gap:10px;align-items:start;
+    padding:9px 11px;background:var(--tint);border-radius:10px}
+  .lbl{font-size:10px;color:var(--faint);font-weight:700;padding-top:2px}
+  .txt{font-size:12px;line-height:1.7;color:var(--mut)}
+  .txt b{color:var(--ink)}
+  .src{font-size:9.5px;color:var(--faint);white-space:nowrap;padding-top:3px;
+    font-family:"Geist Mono",ui-monospace,monospace}
+  .src i{font-style:normal;padding:2px 6px;border-radius:5px;background:#fff;
+    border:1px solid var(--line)}
+  .src i.t1{color:var(--blue);border-color:var(--blue-soft);background:var(--blue-soft)}
+  .src i.t4{color:var(--faint)}
+
+  .fold{padding:11px 16px;font-size:11.5px;color:var(--faint);background:var(--tint);
+    border-top:1px solid var(--div)}
+  .ask{display:flex;align-items:center;gap:9px;margin-top:16px;padding:11px 14px;
+    background:var(--card);border:1px solid var(--line2);border-radius:12px}
+  .ask input{flex:1;border:none;outline:none;font-size:12.5px;font-family:inherit;
+    color:var(--ink);background:none}
+  .ask input::placeholder{color:var(--faint)}
+  .ask u{text-decoration:none;font-size:11px;font-weight:700;color:#fff;background:var(--accent);
+    padding:6px 13px;border-radius:8px;cursor:pointer;user-select:none;white-space:nowrap}
+
+  .note{margin:14px 0 0;padding:10px 13px;border:1px solid var(--accent);
+    background:var(--accent-soft);border-radius:11px;font-size:11.5px;color:var(--ink);line-height:1.7}
+  .note b{color:#8a4200}
+  .imp{margin-top:11px;padding:11px 13px;border:1px solid var(--accent);
+    background:var(--accent-soft);border-radius:11px}
+  .imp u{display:block;text-decoration:none;font-size:10px;font-weight:700;color:var(--accent);
+    margin-bottom:5px;letter-spacing:.3px}
+  .imp p{margin:0;font-size:12.5px;line-height:1.75}
+
+  .load{padding:40px;text-align:center;color:var(--faint);font-size:12.5px}
+  .row{cursor:pointer}
+  .row:hover{background:#eef2f8}
+  .n{font-size:9.5px;color:var(--faint);font-weight:400;margin-left:5px}
+  .ev{grid-column:1/-1;margin-top:8px;padding-top:8px;border-top:1px dashed var(--line2);
+    display:grid;gap:6px}
+  .ev div{display:grid;grid-template-columns:auto 1fr auto;gap:9px;font-size:11px;
+    color:var(--mut);line-height:1.6}
+  .ev b{font-family:"Geist Mono",ui-monospace,monospace;font-size:9.5px;color:var(--faint);
+    font-weight:400;white-space:nowrap}
+  .warn{display:inline-block;font-size:9.5px;padding:2px 7px;border-radius:999px;
+    background:var(--accent-sel);color:#8a4200;font-weight:700;margin-left:6px}
+  .chg{margin:10px 0 0;padding:9px 12px;border-left:3px solid var(--strong);
+    background:#fff5f5;border-radius:0 8px 8px 0;font-size:12px;line-height:1.7}
+  .chg u{text-decoration:none;font-size:9.5px;font-weight:700;color:var(--strong);
+    display:block;margin-bottom:3px;letter-spacing:.3px}
+  .empty{padding:11px 16px;font-size:11.5px;color:var(--faint);background:var(--tint);
+    border-top:1px solid var(--div);font-style:italic}
+  .row.gap{background:#fbfbfd;border:1px dashed var(--line2)}
+  .row.gap .txt{color:var(--faint);font-style:italic}
+  .row.gap .lbl{color:#c3c8d2}
+  .row.gap.inside{border-color:var(--accent);background:#fffaf5}
+  .row.gap.inside .txt{color:#8a4200;font-style:normal}
+  .more{font-size:9.5px;color:var(--faint);white-space:nowrap;padding-top:3px;
+    font-family:"Geist Mono",ui-monospace,monospace}
+  .chk{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+  .chk span{font-size:10px;padding:3px 9px;border-radius:999px;font-weight:700}
+  .chk .ok{background:#e6f9f2;color:#00845e}
+  .chk .no{background:#ffe9ea;color:var(--strong)}
+  @media(max-width:720px){.kpis{grid-template-columns:repeat(2,1fr)}
+    .row{grid-template-columns:44px 1fr}.src{grid-column:2;padding-top:0}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="bar">
+    <div class="logo">AI Intel <span>Hub</span></div>
+    <div class="nav">
+      <i class="on" data-t="brief">주제축 브리핑</i><i data-t="ask">문서 검색</i>
+    </div>
+    <div class="when">
+      <select class="sel" id="access">
+        <option value="전사">권한 전사</option>
+        <option value="부서">권한 부서</option>
+        <option value="제한">권한 제한</option>
+      </select>
+      <span id="stamp">불러오는 중…</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div id="brief"><div class="load">브리핑을 만드는 중…</div></div>
+    <div id="ask" style="display:none"></div>
+
+    <div class="ask">
+      <input id="q" placeholder="궁금한 것을 물어보세요 — 예) HBM4 수율이 왜 낮은가?">
+      <u id="go">묻기</u>
+    </div>
+    <div class="note" id="mode"></div>
+  </div>
+
+</div>
+<script>
+const $ = s => document.querySelector(s);
+const esc = t => (t||"").replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+let open = 1;                       // 펼쳐 둘 축 번호
+const openEv = new Set();           // 근거를 펼쳐 둔 행
+
+async function load(){
+  const acc = $("#access").value;
+  $("#brief").innerHTML = '<div class="load">브리핑을 만드는 중…</div>';
+  const d = await (await fetch(`/api/brief?access=${encodeURIComponent(acc)}`)).json();
+  if (d.error) { $("#brief").innerHTML = `<div class="load">오류 — ${esc(d.error)}</div>`; return; }
+  $("#stamp").textContent = `${d.generated} 생성 · 다음 ${d.next}`;
+  render(d);
+  $("#mode").innerHTML = d.live
+    ? `<b>사내 모델 연결됨</b> — ${esc(d.model)} · ${d.ms}ms`
+    : `<b>가짜 벡터로 도는 중입니다.</b> 흐름은 전부 확인되지만 <b>순위는 믿지 마십시오.</b>
+       <code>.env</code> 에 EMBED_BASE_URL·EMBED_MODEL 을 채우고
+       <code>embed_all(redo=True)</code> 로 다시 만드십시오.`;
+}
+
+function render(d){
+  const k = d.kpi;
+  let h = `<div class="h"><b>주제축 브리핑</b><em>${esc(d.period)} · 축 ${k.axes}개 · 권한 ${esc(d.access)}</em></div>`;
+  const top = d.axes.find(a => a.rows.length) || d.axes[0];
+  h += `<p class="lede">이번 기간 가장 근거가 많은 축은 <b>${esc(top.name)}</b>입니다.
+        ${esc(top.lead)}</p>`;
+
+  h += `<div class="kpis">
+    <div class="kpi up"><u>달라진 축</u><b>${d.changed.length}</b><s>${
+      d.runs>1 ? "지난 기록과 대조" : "기록이 쌓이면 뜬다"}</s></div>
+    <div class="kpi ${d.no_inside.length?"up":""}"><u>사내 문서 없는 축</u><b>${d.no_inside.length}</b><s>${
+      d.no_inside.length ? "대응 문서 확인 필요" : "모든 축에 사내 근거 있음"}</s></div>
+    <div class="kpi"><u>최근 들어온 문서</u><b>${k.new}</b><s>이어짐 ${k.cont}</s></div>
+    <div class="kpi"><u>근거 문서</u><b>${k.docs}</b><s>사내 ${k.inside} · 외부 ${k.outside}</s></div>
+  </div>`;
+
+  for (const a of d.axes){
+    const tags = [
+      a.change ? `<span class="tag new">달라짐</span>` : "",
+      a.new  ? `<span class="tag cont">새로 ${a.new}</span>` : "",
+      a.empty ? `<span class="tag gone">근거 없음</span>` : ""
+    ].join("");
+    const head = `<div class="axis-h" data-no="${a.no}">
+        <div class="no">${a.rank}</div><b>${esc(a.name)}</b>${tags}
+        <span class="cnt">근거 ${a.count}${a.dropped?` · 제외 ${a.dropped}`:""}</span></div>`;
+    if (a.empty){ h += `<div class="axis">${head}<div class="empty">${esc(a.lead)}</div></div>`; continue; }
+    if (a.no === open){
+      const rows = a.rows.map((r,ri) => {
+        const key = `${a.no}-${ri}`;
+        const gap = r.state !== "ok";
+        const cls = "row" + (gap ? " gap" : "") + (gap && r.label === "사내" ? " inside" : "");
+        const chips = r.srcs.map(s => `<i class="${s.tier}">${esc(s.chip)}</i>`).join(" ");
+        const tail = gap
+          ? (r.low.length ? `<span class="more">관련낮음 ${r.low.length} ▸</span>` : "")
+          : (r.low.length ? `${chips} <span class="more">+${r.low.length}</span>` : chips);
+        // 펼치면 — 쓴 근거 + (있으면) 관련 낮은 것까지 점수와 함께
+        const all = [...r.srcs.map(s => [s, ""]), ...r.low.map(s => [s, "low"])];
+        const ev = openEv.has(key) && all.length ? `<div class="ev">` + all.map(([s,lo]) =>
+          `<div><b>${s.score}</b><span${lo?' style="color:#9aa2ae"':''}>${lo?"[관련낮음] ":""}${esc(s.body)}</span>
+             <b>${esc(s.chip)} ${esc(s.org)} ${esc(s.date)}</b></div>`).join("") + `</div>` : "";
+        return `<div class="${cls}" data-ev="${key}">
+          <div class="lbl">${esc(r.label)}${r.n?`<span class="n">${r.n}건</span>`:""}</div>
+          <div class="txt">${esc(r.text)}</div>
+          <div class="src">${tail}</div>${ev}
+        </div>`;
+      }).join("");
+      h += `<div class="axis">${head}<div class="axis-b">
+        <p class="lead">${esc(a.lead)}${a.raw ? '<span class="warn">요약 아님</span>' : ''}</p>
+        <div class="rows">${rows || '<div class="row"><div class="lbl">—</div><div class="txt">이 축에 걸린 근거가 없습니다.</div><div class="src"></div></div>'}</div>
+        ${a.change ? `<div class="chg"><u>지난번과 달라진 점</u>${esc(a.change)}</div>` : ""}
+        <div class="imp"><u>${a.raw ? "요약 아님 — 근거 첫 줄" : "축 판단"}</u>
+          <p>${esc(a.lead)}</p></div>
+        <div style="font-size:10.5px;color:var(--faint);margin-top:9px;
+             font-family:'Geist Mono',ui-monospace,monospace">검색어 · ${esc(a.q)}</div>
+      </div></div>`;
+    } else {
+      h += `<div class="axis">${head}<div class="fold">${
+        a.change ? `<b style="color:var(--strong)">달라짐</b> · ` : ""}${esc(a.lead)}</div></div>`;
+    }
+  }
+  $("#brief").innerHTML = h;
+  document.querySelectorAll(".axis-h").forEach(el =>
+    el.onclick = () => { open = +el.dataset.no; openEv.clear(); render(d); });
+  document.querySelectorAll(".row[data-ev]").forEach(el =>
+    el.onclick = () => {
+      const k = el.dataset.ev;
+      openEv.has(k) ? openEv.delete(k) : openEv.add(k);
+      render(d);
+    });
+}
+
+async function askNow(){
+  const q = $("#q").value.trim(); if (!q) return;
+  const acc = $("#access").value;
+  $("#brief").style.display = "none"; $("#ask").style.display = "";
+  $("#ask").innerHTML = '<div class="load">찾는 중…</div>';
+  const d = await (await fetch(`/api/ask?q=${encodeURIComponent(q)}&access=${encodeURIComponent(acc)}`)).json();
+  if (d.error) { $("#ask").innerHTML = `<div class="load">오류 — ${esc(d.error)}</div>`; return; }
+
+  let h = `<div class="h"><b>${esc(d.question)}</b><em>근거 ${d.hits.length}건 · 지문 ${d.prompt_chars}자</em></div>`;
+  if (d.answer){
+    const chk = d.checks.map(c =>
+      `<span class="${c.result==="통과"?"ok":"no"}">${esc(c.check)} ${esc(c.result)}</span>`).join("");
+    h += `<div class="imp"><u>답변</u><p>${esc(d.answer).replace(/\n/g,"<br>")}</p></div>
+          <div class="chk">${chk}</div>`;
+  } else {
+    h += `<div class="note"><b>생성 모델이 없습니다.</b> 아래는 AI 에 넘길 근거입니다.
+          <code>.env</code> 에 LLM_BASE_URL·LLM_MODEL 을 채우면 여기에 답변이 나옵니다.</div>`;
+  }
+  h += `<div class="rows" style="margin-top:12px">` + d.hits.map((r,i) => `<div class="row">
+      <div class="lbl">[${i+1}] ${r.score}</div>
+      <div class="txt">${r.section?`<b>${esc(r.section)}</b> · `:""}${esc(r.body)}</div>
+      <div class="src"><i class="${r.tier}">${esc(r.chip)}</i> ${esc(r.org)} ${esc(r.date)}</div>
+    </div>`).join("") + `</div>`;
+  $("#ask").innerHTML = h;
+}
+
+$("#go").onclick = askNow;
+$("#q").onkeydown = e => { if (e.key === "Enter") askNow(); };
+$("#access").onchange = () => {
+  if ($("#ask").style.display === "none") load(); else askNow();
+};
+document.querySelectorAll(".nav i").forEach(el => el.onclick = () => {
+  document.querySelectorAll(".nav i").forEach(x => x.classList.remove("on"));
+  el.classList.add("on");
+  const brief = el.dataset.t === "brief";
+  $("#brief").style.display = brief ? "" : "none";
+  $("#ask").style.display = brief ? "none" : "";
+  if (brief && !$("#brief").innerHTML.includes("axis")) load();
+});
+load();
+</script>
+</body>
+</html>

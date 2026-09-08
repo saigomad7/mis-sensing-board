@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>셀별 실행 결과 — 무엇을 보고 무엇을 확인하나</title>
+<style>
+  :root{
+    --ink:#131C18; --ink2:#2C3A33; --muted:#5F6E66;
+    --mist:#DCE2DB; --surface:#F8FAF6; --surface2:#EFF3EC;
+    --line:#C3CCC1; --hair:#DDE4DB;
+    --kelp:#1F6249; --kelp-wash:#DEEDE4;
+    --amber:#8F6209; --amber-wash:#F5EAD0;
+    --berry:#8C2F3E; --berry-wash:#F3DFE2;
+    --sans:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+    --mono:"IBM Plex Mono","SFMono-Regular",Consolas,"D2Coding",monospace;
+  }
+  *{box-sizing:border-box;}
+  html{-webkit-text-size-adjust:100%;scroll-behavior:smooth;}
+  body{margin:0;background:var(--mist);color:var(--ink);font-family:var(--sans);
+    font-size:16px;line-height:1.75;letter-spacing:-0.01em;padding:0 20px 90px;}
+  .wrap{max-width:1060px;margin:0 auto;}
+
+  .cover{padding:60px 0 32px;border-bottom:2px solid var(--ink);}
+  .cover .kicker{font-family:var(--mono);font-size:11px;font-weight:500;
+    letter-spacing:0.22em;text-transform:uppercase;color:var(--kelp);margin:0 0 18px;}
+  .cover h1{font-size:clamp(27px,4.4vw,42px);font-weight:700;line-height:1.2;
+    letter-spacing:-0.035em;margin:0 0 15px;max-width:22ch;}
+  .cover .lede{font-size:clamp(16px,2vw,18.5px);font-weight:300;color:var(--ink2);
+    max-width:60ch;margin:0 0 22px;line-height:1.7;}
+  .metaline{display:flex;flex-wrap:wrap;gap:8px 24px;font-family:var(--mono);
+    font-size:11.5px;color:var(--muted);letter-spacing:0.04em;}
+  .metaline b{color:var(--ink);font-weight:500;}
+
+  /* 표 목록 — 맨 앞 */
+  .index{background:var(--ink);border-radius:3px;padding:28px 30px;margin:30px 0 0;}
+  .index h2{color:#F6FAF5;font-size:17px;font-weight:600;margin:0 0 4px;letter-spacing:-0.02em;}
+  .index .sub{color:#93A399;font-size:13px;font-weight:300;margin:0 0 22px;}
+  .index table{width:100%;border-collapse:collapse;font-size:13px;background:none;}
+  .index th{color:#7E8F84;font-family:var(--mono);font-size:10px;letter-spacing:0.1em;
+    text-transform:uppercase;text-align:left;padding:0 10px 9px 0;font-weight:500;
+    border-bottom:1px solid #2C3A33;white-space:nowrap;}
+  .index td{padding:9px 10px 9px 0;border-bottom:1px solid #1E2A24;color:#B9C6BC;
+    vertical-align:top;line-height:1.55;}
+  .index td.v{font-family:var(--mono);color:#8FD3B4;font-weight:600;white-space:nowrap;}
+  .index td.s{font-family:var(--mono);color:#7E8F84;font-size:11.5px;white-space:nowrap;}
+  .index td.q{color:#E0E8E1;}
+  .index a{color:#8FD3B4;text-decoration:none;}
+  .index a:hover{border-bottom:1px solid #8FD3B4;}
+
+  .sec{padding:52px 0 12px;border-bottom:1px solid var(--line);scroll-margin-top:14px;}
+  .sec:last-of-type{border-bottom:none;}
+  .sn{font-family:var(--mono);font-size:11px;letter-spacing:0.18em;color:var(--kelp);
+    text-transform:uppercase;margin:0 0 11px;}
+  .sec h2{font-size:clamp(21px,2.9vw,28px);font-weight:700;letter-spacing:-0.03em;
+    margin:0 0 13px;line-height:1.28;max-width:28ch;}
+  .sec h3{font-size:16.5px;font-weight:600;letter-spacing:-0.02em;margin:30px 0 10px;}
+  p{margin:0 0 14px;max-width:70ch;}
+  .sec>p:first-of-type{font-size:16.5px;font-weight:300;color:var(--ink2);max-width:62ch;}
+  strong{font-weight:600;}
+  code{font-family:var(--mono);font-size:0.87em;background:var(--surface2);
+    padding:1px 5px;border-radius:2px;color:var(--kelp);}
+
+  .goal{display:grid;grid-template-columns:auto 1fr;gap:0 16px;margin:18px 0 22px;
+    background:var(--surface);border:1px solid var(--line);border-radius:3px;padding:16px 18px;}
+  .goal dt{font-family:var(--mono);font-size:10.5px;letter-spacing:0.1em;
+    text-transform:uppercase;color:var(--kelp);padding-top:4px;white-space:nowrap;}
+  .goal dd{margin:0 0 8px;font-size:14.5px;line-height:1.6;}
+  .goal dd:last-child{margin-bottom:0;}
+
+  table.d{width:100%;border-collapse:collapse;margin:14px 0 20px;font-size:12.5px;
+    background:var(--surface);font-family:var(--mono);}
+  .scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  table.d th{text-align:left;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;
+    color:var(--muted);font-weight:500;border-bottom:1.5px solid var(--ink);
+    padding:8px 10px;white-space:nowrap;}
+  table.d td{padding:7px 10px;border-bottom:1px solid var(--hair);vertical-align:top;
+    line-height:1.55;white-space:nowrap;}
+  table.d td.w{white-space:normal;max-width:34ch;font-family:var(--sans);}
+  table.d tbody tr:last-child td{border-bottom:1px solid var(--line);}
+  .good{color:var(--kelp);font-weight:600;}
+  .warn{color:var(--amber);font-weight:600;}
+  .bad{color:var(--berry);font-weight:600;}
+
+  table.k{width:100%;border-collapse:collapse;margin:14px 0 20px;font-size:13.5px;
+    background:var(--surface);}
+  table.k th{text-align:left;font-family:var(--mono);font-size:10px;letter-spacing:0.1em;
+    text-transform:uppercase;color:var(--muted);font-weight:500;
+    border-bottom:1.5px solid var(--ink);padding:8px 11px;white-space:nowrap;}
+  table.k td{padding:9px 11px;border-bottom:1px solid var(--hair);vertical-align:top;line-height:1.6;}
+  table.k td.m{font-family:var(--mono);font-size:12.5px;white-space:nowrap;}
+  table.k tbody tr:last-child td{border-bottom:1px solid var(--line);}
+
+  .box{border-left:3px solid var(--kelp);background:var(--kelp-wash);
+    padding:15px 18px;margin:18px 0;border-radius:0 3px 3px 0;}
+  .box.a{border-left-color:var(--amber);background:var(--amber-wash);}
+  .box.b{border-left-color:var(--berry);background:var(--berry-wash);}
+  .box .bt{font-family:var(--mono);font-size:10.5px;letter-spacing:0.12em;
+    text-transform:uppercase;color:var(--kelp);margin:0 0 6px;font-weight:600;}
+  .box.a .bt{color:var(--amber);} .box.b .bt{color:var(--berry);}
+  .box p{margin:0 0 8px;} .box p:last-child{margin:0;}
+
+  .term{background:#0F1613;border-radius:3px;padding:16px 18px;margin:16px 0;overflow-x:auto;}
+  .term pre{margin:0;font-family:var(--mono);font-size:11.5px;line-height:1.7;
+    color:#C6D4C9;white-space:pre;}
+  .term .hi{color:#8FD3B4;font-weight:600;}
+  .term .dim{color:#6C7C72;}
+  .term .al{color:#E0A93C;}
+
+  ul,ol{margin:0 0 14px;padding-left:22px;max-width:70ch;}
+  li{margin-bottom:6px;}
+  .foot{padding:38px 0 0;font-size:12.5px;color:var(--muted);font-weight:300;}
+  @media(max-width:640px){
+    body{padding:0 14px 60px;font-size:15px;}
+    .index{padding:20px;} table.d,table.k{font-size:11.5px;}
+    .goal{grid-template-columns:1fr;gap:2px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="cover">
+  <p class="kicker">MIS 적재·검색 파이프라인 · 학습노트</p>
+  <h1>셀별 실행 결과</h1>
+  <p class="lede">셀을 하나씩 돌리면 어떤 표가 생기고, 그 표에서 무엇을 확인해야 하는지.
+    아래 값은 샘플 문서 10건으로 실제로 돌린 결과다.</p>
+  <div class="metaline">
+    <span>기준 파일 <b>pipeline_step_by_step.py</b></span>
+    <span>샘플 <b>문서 10건 → 조각 36개</b></span>
+    <span>모델 <b>미연결(가짜 벡터)</b></span>
+    <span>작성 <b>2026-09-08</b></span>
+  </div>
+
+  <div class="index">
+    <h2>표 목록</h2>
+    <p class="sub">Spyder 변수 탐색기에서 이 이름들을 더블클릭하면 표가 열린다.</p>
+    <div class="scroll"><table>
+      <thead><tr><th>변수</th><th>셀</th><th>크기</th><th>무엇을 확인하나</th></tr></thead>
+      <tbody>
+        <tr><td class="v"><a href="#c0">status</a></td><td class="s">setup · 현황</td><td class="s">3×4</td>
+            <td class="q">단계마다 몇 건 쌓였나. <b>맨 처음과 맨 끝에 본다</b></td></tr>
+        <tr><td class="v"><a href="#c1">found_tbl</a></td><td class="s">① collect</td><td class="s">10×5</td>
+            <td class="q">유형·출처·권한이 제대로 붙었나. <b>권한이 비면 안 된다</b></td></tr>
+        <tr><td class="v"><a href="#c2">raw_tbl</a></td><td class="s">② save_raw</td><td class="s">10×6</td>
+            <td class="q">원문이 손상 없이 들어갔나</td></tr>
+        <tr><td class="v"><a href="#c3">shrink_tbl</a></td><td class="s">③ normalize</td><td class="s">10×6</td>
+            <td class="q"><b>★가장 중요.</b> 얼마나 줄었나(<code>kept_pct</code>).
+                너무 줄면 본문이 날아간 것</td></tr>
+        <tr><td class="v"><a href="#c4">chunk_tbl</a></td><td class="s">④ chunk</td><td class="s">36×6</td>
+            <td class="q">절이 제대로 잡혔나. 조각 크기가 고른가</td></tr>
+        <tr><td class="v"><a href="#c4">loss_tbl</a></td><td class="s">④ chunk</td><td class="s">10×6</td>
+            <td class="q"><b>★가장 중요.</b> 자르며 내용이 사라졌나(<code>kept_pct</code>)</td></tr>
+        <tr><td class="v"><a href="#c5">vec_tbl</a></td><td class="s">⑤ embed</td><td class="s">36×6</td>
+            <td class="q">모든 조각에 벡터가 생겼나. <b>모델 이름이 맞나</b></td></tr>
+        <tr><td class="v"><a href="#c5">per_type</a></td><td class="s">현황</td><td class="s">5×5</td>
+            <td class="q">유형별로 골고루 들어왔나</td></tr>
+        <tr><td class="v"><a href="#c6">index</a></td><td class="s">⑥-a bm25</td><td class="s">dict</td>
+            <td class="q">어휘 색인. 표가 아니라 <code>dict</code> 다</td></tr>
+        <tr><td class="v"><a href="#c7">hits_tbl</a></td><td class="s">⑥-b search</td><td class="s">5×9</td>
+            <td class="q"><b>★점수가 어떻게 나왔는지</b>가 칸으로 나뉜다</td></tr>
+        <tr><td class="v"><a href="#c8">check_tbl</a></td><td class="s">⑦ answer</td><td class="s">3×3</td>
+            <td class="q">답변이 근거 밖으로 나갔나. <b>모델이 없으면 0행</b></td></tr>
+      </tbody>
+    </table></div>
+  </div>
+</header>
+
+<!-- setup ─────────────────────────────────────── -->
+<section class="sec" id="c0">
+  <p class="sn">setup</p>
+  <h2>무엇이 붙었는지 먼저 본다</h2>
+  <dl class="goal">
+    <dt>목적</dt><dd>사내 모델·저장소가 실제로 연결됐는지 확인한다. <strong>여기서 ✘ 면 뒤 단계 결과를 믿으면 안 된다.</strong></dd>
+    <dt>남는 표</dt><dd><code>status</code></dd>
+  </dl>
+
+  <div class="term"><pre>  문서 폴더 : …/문서  (10건)
+  적재 DB   : …/store.db
+
+  <span class="al">✘</span> ① 임베딩 모델    없음 → 가짜 벡터로 흐름만 돈다
+  <span class="al">✘</span> ② 생성 모델      없음 → ⑦ 은 지문만 보여 준다
+  <span class="hi">✔</span> ③ 벡터 저장소    sqlite</pre></div>
+
+  <h3>status</h3>
+  <div class="scroll"><table class="d">
+    <thead><tr><th>stage</th><th>table</th><th>rows</th><th>vectors</th></tr></thead>
+    <tbody>
+      <tr><td>①② collect·raw</td><td>raw</td><td>10</td><td>—</td></tr>
+      <tr><td>③ normalize</td><td>docs</td><td>10</td><td>—</td></tr>
+      <tr><td>④⑤ chunk·vector</td><td>chunks</td><td>36</td><td class="good">36</td></tr>
+    </tbody>
+  </table></div>
+  <p><strong><code>rows</code> 와 <code>vectors</code> 가 같아야 한다.</strong> 다르면 임베딩이 덜 된 것이다.</p>
+</section>
+
+<!-- ① ──────────────────────────────────────────── -->
+<section class="sec" id="c1">
+  <p class="sn">① collect</p>
+  <h2>폴더의 파일을 읽어 온다</h2>
+  <dl class="goal">
+    <dt>목적</dt><dd>파일 머리말에서 <strong>유형·출처·권한·발행일</strong>을 꺼낸다. 아직 저장하지 않는다.</dd>
+    <dt>왜 여기서</dt><dd><strong>권한을 모르는 채로 표에 들어가면 검색이 "누가 볼 수 있는가" 를 판단할 수 없다.</strong></dd>
+    <dt>남는 표</dt><dd><code>found_tbl</code></dd>
+  </dl>
+
+  <h3>found_tbl — 10행 × 5칸</h3>
+  <div class="scroll"><table class="d">
+    <thead><tr><th>mtype</th><th>org</th><th>access</th><th>date</th><th>title</th></tr></thead>
+    <tbody>
+      <tr><td>external_doc</td><td>JEDEC</td><td>전사</td><td>2026-04-02</td><td class="w">HBM4 인터페이스 표준 요약 (공개본)</td></tr>
+      <tr><td>external_doc</td><td>SEMI</td><td>전사</td><td>2026-08-28</td><td class="w">반도체 장비 출하 통계 (분기)</td></tr>
+      <tr><td>internal_doc</td><td>전략기획팀</td><td class="warn">부서</td><td>2026-08-14</td><td class="w">2026 하반기 메모리 사업 전략 검토</td></tr>
+      <tr><td>internal_doc</td><td>품질보증팀</td><td class="bad">제한</td><td>2026-08-20</td><td class="w">HBM4 초기 수율 현황 및 개선 계획</td></tr>
+      <tr><td>mail</td><td>전략기획팀</td><td class="bad">제한</td><td>2026-08-25</td><td class="w">[회신] M16 증설 일정 관련 문의</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="box b">
+    <p class="bt">여기서 반드시 확인할 것</p>
+    <p><strong><code>access</code> 가 비었거나 전부 '전사' 면 멈춰야 한다.</strong>
+      사내 문서에 머리말이 없으면 파일 이름으로 추측하는데, 권한만은 추측하지 않는다.
+      기본값 '전사' 로 들어가므로 <strong>제한 문서가 전사로 새어 나갈 수 있다.</strong></p>
+    <p><code>date</code> 가 비면 시의성 감쇠가 작동하지 않는다 — 낡은 문서가 안 밀린다.</p>
+  </div>
+</section>
+
+<!-- ② ──────────────────────────────────────────── -->
+<section class="sec" id="c2">
+  <p class="sn">② save_raw</p>
+  <h2>손대지 않고 그대로. 바뀐 것만 갱신한다</h2>
+  <dl class="goal">
+    <dt>목적</dt><dd>원문을 <strong>손질 없이</strong> 보관한다. 뒤 단계 규칙이 바뀌면 ③부터 다시 돌리면 된다.</dd>
+    <dt>운영 핵심</dt><dd>내용 지문(hash)이 같으면 건너뛴다. <strong>매일 돌려도 새 문서·고쳐진 문서만 처리된다.</strong></dd>
+    <dt>남는 표</dt><dd><code>raw_tbl</code></dd>
+  </dl>
+
+  <div class="term"><pre><span class="dim">첫 실행</span>   {"new": 10, "changed": 0, "unchanged": 0}
+<span class="dim">두 번째</span>   {"new": <span class="hi">0</span>,  "changed": <span class="hi">0</span>, "unchanged": <span class="hi">10</span>}   <span class="dim">← 이래야 정상</span></pre></div>
+
+  <h3>raw_tbl — 10행 × 6칸</h3>
+  <p><code>found_tbl</code> 에 <code>chars</code>(원문 글자수) 가 하나 더 붙은 표다.
+    <strong>다음 단계에서 얼마나 줄었는지 비교하는 기준</strong>이 된다.</p>
+
+  <div class="box a">
+    <p class="bt">이 셀을 두 번 돌려 보라</p>
+    <p>두 번째부터 <code>new: 0</code> 이 안 나오면 <strong>지문 계산이 잘못된 것</strong>이다.
+      매번 전부 다시 처리되어 사내 모델 호출 비용이 계속 나간다.</p>
+  </div>
+</section>
+
+<!-- ③ ──────────────────────────────────────────── -->
+<section class="sec" id="c3">
+  <p class="sn">③ normalize</p>
+  <h2>유형별로 다르게 손질해 칸을 통일한다</h2>
+  <dl class="goal">
+    <dt>목적</dt><dd>메일 서명·리포트 고지문처럼 <strong>모든 문서에 똑같이 붙는 것</strong>을 지운다. 번호 줄을 절 제목으로 승격시킨다.</dd>
+    <dt>왜</dt><dd>안 지우면 <strong>모든 메일이 서로 비슷해 보여</strong> 검색이 어지러워진다.</dd>
+    <dt>남는 표</dt><dd><code>shrink_tbl</code> — <strong>★사내 문서 검수의 핵심</strong></dd>
+    <dt>고칠 곳</dt><dd><code>MAIL_DROP</code> · <code>REPORT_DROP</code> · <code>SEC_NO</code> — 이 셀 안</dd>
+  </dl>
+
+  <h3>shrink_tbl — 10행 × 6칸</h3>
+  <div class="scroll"><table class="d">
+    <thead><tr><th>mtype</th><th>org</th><th>raw_chars</th><th>doc_chars</th><th>kept_pct</th><th>title</th></tr></thead>
+    <tbody>
+      <tr><td>mail</td><td>전략기획팀</td><td>439</td><td>135</td><td class="bad">31%</td><td class="w">[회신] M16 증설 일정 관련 문의</td></tr>
+      <tr><td>mail</td><td>사업부 기획</td><td>265</td><td>187</td><td class="warn">71%</td><td class="w">[회의록] 9월 1주 사업부 주간회의</td></tr>
+      <tr><td>report</td><td>A증권</td><td>785</td><td>641</td><td>82%</td><td class="w">메모리 업황 점검 — HBM4 전환기</td></tr>
+      <tr><td>report</td><td>B증권</td><td>356</td><td>318</td><td>89%</td><td class="w">메모리 — HBM4 병목은 기회다</td></tr>
+      <tr><td>research</td><td>한국은행</td><td>496</td><td>465</td><td class="good">94%</td><td class="w">반도체 경기와 국내 설비투자</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>kept_pct 를 어떻게 읽나</h3>
+  <div class="scroll"><table class="k">
+    <thead><tr><th>유형</th><th>정상 범위</th><th>벗어나면</th></tr></thead>
+    <tbody>
+      <tr><td class="m">mail</td><td class="good">25~75%</td><td class="bad">90% 이상이면 서명·인용부를 못 지운 것 — <code>MAIL_DROP</code> 에 사내 서식을 추가</td></tr>
+      <tr><td class="m">report</td><td class="good">75~95%</td><td class="bad">60% 아래면 본문까지 지운 것 — <code>REPORT_DROP</code> 규칙이 너무 넓다</td></tr>
+      <tr><td class="m">research · external_doc · internal_doc</td><td class="good">90~105%</td><td class="bad">80% 아래면 각주 규칙이 본문을 먹은 것</td></tr>
+    </tbody>
+  </table></div>
+  <p><strong>100%를 넘을 수 있다.</strong> 절 제목에 <code>## </code> 가 붙어 글자가 늘기 때문이다. 정상이다.</p>
+
+  <div class="box b">
+    <p class="bt">사내 문서에서 가장 먼저 깨지는 곳</p>
+    <p>사내 메일 서식(머리말·꼬리말·기밀 문구)은 회사마다 다르다.
+      <strong><code>kept_pct</code> 가 90% 이상인 mail 이 있으면 그 문구가 안 지워진 것</strong>이다.
+      ③-b 셀이 원문/정규화 후를 나란히 찍어 주므로 무엇이 남았는지 바로 보인다.</p>
+  </div>
+</section>
+
+<!-- ④ ──────────────────────────────────────────── -->
+<section class="sec" id="c4">
+  <p class="sn">④ chunk</p>
+  <h2>검색의 단위로 자른다</h2>
+  <dl class="goal">
+    <dt>목적</dt><dd>절 제목을 경계로 자른다. 너무 짧은 조각은 <strong>같은 상위 절 밑 형제끼리만</strong> 합친다.</dd>
+    <dt>남는 표</dt><dd><code>chunk_tbl</code>(조각 전부) · <code>loss_tbl</code>(<strong>★손실 확인</strong>)</dd>
+    <dt>고칠 곳</dt><dd><code>SIZE</code>(유형별 크기) · <code>merge_small()</code> 의 <code>floor</code></dd>
+  </dl>
+
+  <h3>loss_tbl — 10행 × 6칸</h3>
+  <div class="scroll"><table class="d">
+    <thead><tr><th>mtype</th><th>org</th><th>doc_chars</th><th>n_chunks</th><th>sum_chars</th><th>kept_pct</th></tr></thead>
+    <tbody>
+      <tr><td>external_doc</td><td>JEDEC</td><td>419</td><td>5</td><td>380</td><td class="good">91%</td></tr>
+      <tr><td>internal_doc</td><td>품질보증팀</td><td>333</td><td>4</td><td>306</td><td class="good">92%</td></tr>
+      <tr><td>internal_doc</td><td>전략기획팀</td><td>296</td><td>4</td><td>274</td><td class="good">93%</td></tr>
+      <tr><td>report</td><td>B증권</td><td>318</td><td>3</td><td>306</td><td class="good">96%</td></tr>
+      <tr><td>research</td><td>TrendForce</td><td>975</td><td>5</td><td>955</td><td class="good">98%</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="box">
+    <p class="bt">읽는 법 — 두 칸만 보면 된다</p>
+    <p><strong><code>kept_pct</code> 90% 이상</strong> — 정상. 빠진 5~9%는 줄바꿈 문자다.
+      <strong>90% 아래면 내용이 사라진 것</strong>이다.</p>
+    <p><strong><code>n_chunks</code> 가 1</strong> — 절이 하나도 안 잡혔다는 뜻.
+      <code>SEC_NO</code> 정규식이 사내 문서의 절 표기와 안 맞는 것이다.
+      (mail·news 는 원래 1이 정상)</p>
+  </div>
+
+  <div class="box b">
+    <p class="bt">실측으로 잡은 함정</p>
+    <p>자투리를 조건 없이 합쳤더니 <strong>표준 문서(JEDEC) 절 13개가 한 조각으로 뭉개졌다</strong>(419자 → 1조각).
+      절 구조가 통째로 사라진다. <strong>같은 상위 절 밑 형제끼리만</strong> 합치도록 고쳐 5조각이 됐다.</p>
+  </div>
+
+  <h3>chunk_tbl — 36행 × 6칸</h3>
+  <div class="scroll"><table class="d">
+    <thead><tr><th>mtype</th><th>org</th><th>ord</th><th>section</th><th>chars</th><th>body</th></tr></thead>
+    <tbody>
+      <tr><td>external_doc</td><td>JEDEC</td><td>0</td><td class="w">1 적용 범위</td><td>80</td><td class="w">본 문서는 HBM4 인터페이스의 …</td></tr>
+      <tr><td>external_doc</td><td>JEDEC</td><td>1</td><td class="w">2 용어 · 2.1 Hybrid Bonding</td><td>90</td><td class="w">마이크로범프 없이 다이 간 …</td></tr>
+      <tr><td>external_doc</td><td>JEDEC</td><td>3</td><td class="w">4 열·기계 요구사항 · 4.1 스택 높이</td><td>116</td><td class="w">스택 높이 제약이 강화되었다 …</td></tr>
+    </tbody>
+  </table></div>
+  <p><strong><code>section</code> 에 <code>·</code> 가 보이면 형제 절이 합쳐진 것</strong>이다. 의도한 동작이다.
+    <code>ord</code> 는 문서 안에서의 순서 — 나중에 앞뒤 조각을 불러 문맥을 넓힐 때 쓴다.</p>
+</section>
+
+<!-- ⑤ ──────────────────────────────────────────── -->
+<section class="sec" id="c5">
+  <p class="sn">⑤ embed</p>
+  <h2>글을 숫자 목록으로 바꿔 넣는다</h2>
+  <dl class="goal">
+    <dt>목적</dt><dd><strong>모델을 처음 쓰는 자리.</strong> <code>.env</code> 에 값이 있으면 사내 모델을 부른다.</dd>
+    <dt>남는 표</dt><dd><code>vec_tbl</code> · <code>per_type</code></dd>
+  </dl>
+
+  <h3>vec_tbl — 36행 × 6칸</h3>
+  <div class="scroll"><table class="d">
+    <thead><tr><th>mtype</th><th>org</th><th>section</th><th>dim</th><th>model</th><th>bytes</th></tr></thead>
+    <tbody>
+      <tr><td>external_doc</td><td>JEDEC</td><td class="w">1 적용 범위</td><td>256</td><td class="bad">fake(no-model)</td><td>1024</td></tr>
+      <tr><td>internal_doc</td><td>품질보증팀</td><td class="w">1 현황 요약</td><td>256</td><td class="bad">fake(no-model)</td><td>1024</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="box b">
+    <p class="bt">여기서 반드시 확인할 것 — 세 가지</p>
+    <p><strong>① <code>model</code> 이 <code>fake(no-model)</code> 이면 순위를 믿으면 안 된다.</strong>
+      <code>.env</code> 를 채우고 <code>embed_all(redo=True)</code> 로 다시 만든다.</p>
+    <p><strong>② <code>model</code> 이 섞여 있으면 안 된다.</strong> 모델을 바꾸고 일부만 다시 만들면
+      차원이 다른 벡터가 섞여 검색이 깨진다.</p>
+    <p><strong>③ <code>dim</code> 이 하나여야 한다.</strong> 사내 모델은 보통 768·1024 다.</p>
+  </div>
+
+  <h3>per_type — 5행 × 5칸</h3>
+  <div class="scroll"><table class="d">
+    <thead><tr><th>mtype</th><th>docs</th><th>chunks</th><th>vectors</th><th>avg_chars</th></tr></thead>
+    <tbody>
+      <tr><td>research</td><td>2</td><td>9</td><td class="good">9</td><td>155</td></tr>
+      <tr><td>report</td><td>2</td><td>9</td><td class="good">9</td><td>102</td></tr>
+      <tr><td>internal_doc</td><td>2</td><td>8</td><td class="good">8</td><td>72</td></tr>
+      <tr><td>external_doc</td><td>2</td><td>8</td><td class="good">8</td><td>82</td></tr>
+      <tr><td>mail</td><td>2</td><td>2</td><td class="good">2</td><td>146</td></tr>
+    </tbody>
+  </table></div>
+  <p><strong><code>chunks</code> 와 <code>vectors</code> 가 같아야 한다.</strong>
+    <code>avg_chars</code> 가 30자 아래면 너무 잘게 쪼갠 것 — 검색에 걸려도 뜻이 안 통한다.</p>
+</section>
+
+<!-- ⑥-a ────────────────────────────────────────── -->
+<section class="sec" id="c6">
+  <p class="sn">⑥-a bm25</p>
+  <h2>어휘검색 — 벡터가 못 하는 것을 한다</h2>
+  <dl class="goal">
+    <dt>목적</dt><dd>글자로 찾는다. <strong>모델이 없어도 제대로 작동한다.</strong></dd>
+    <dt>남는 것</dt><dd><code>index</code> — <strong>표가 아니라 <code>dict</code></strong> 다</dd>
+    <dt>고칠 곳</dt><dd><code>tokenize()</code> — 사내에 형태소 분석기가 있으면 이 함수만</dd>
+  </dl>
+
+  <div class="term"><pre>색인 — 조각 36개 · 낱말 2,104종 · 평균길이 71
+
+  어휘검색 상위 5
+    [  5.87] internal_doc   품질보증팀    1 현황 요약 HBM4 초기 수율은 …
+    [  2.34] internal_doc   품질보증팀    5 리스크 개선이 지연되면 …
+
+  <span class="hi">★어느 낱말이 얼마나 기여했나 (1위 조각)</span>
+    수율        문서내 3회 · 이 낱말이 든 조각 11개
+    hbm4      문서내 2회 · 이 낱말이 든 조각 22개</pre></div>
+
+  <p><code>index</code> 는 <code>ids · tf · dl · df · n · avg_len</code> 을 담은 <code>dict</code> 다.
+    변수 탐색기에서 열면 <strong><code>df</code>(낱말별 등장 조각 수)</strong> 를 보는 것이 쓸모 있다 —
+    사내 용어가 제대로 잘렸는지 확인할 수 있다.</p>
+
+  <div class="box a">
+    <p class="bt">한국어를 두 글자 묶음으로 자른다</p>
+    <p>형태소 분석기 없이 쓰는 방법이다. <code>"초기수율"</code> → <code>초기·기수·수율</code>.
+      <strong>사내에 은전한닢·nori 가 있으면 <code>tokenize()</code> 하나만 바꾸면 된다.</strong></p>
+    <p>★질문 쪽만 조사를 뗀다. 안 떼면 <code>"기준은"</code> → <code>기준·준은</code> 처럼
+      <strong>쓰레기 낱말이 엉뚱한 문서와 맞는다</strong>(실측).</p>
+  </div>
+</section>
+
+<!-- ⑥-b ────────────────────────────────────────── -->
+<section class="sec" id="c7">
+  <p class="sn">⑥-b search</p>
+  <h2>두 갈래를 합치고(RRF) 골라낸다(MMR)</h2>
+  <dl class="goal">
+    <dt>순서</dt><dd>① 권한 좁히기 → ② 벡터+BM25 → ③ RRF 융합 → ④ 보정 → ⑤ MMR·몫·중복제거</dd>
+    <dt>남는 표</dt><dd><code>hits_tbl</code> — <strong>★점수가 어떻게 나왔는지 칸으로 나뉜다</strong></dd>
+  </dl>
+
+  <h3>hits_tbl — 5행 × 9칸</h3>
+  <div class="scroll"><table class="d">
+    <thead><tr><th>score</th><th>rel</th><th>weight</th><th>recency</th><th>adj</th><th>mtype</th><th>org</th><th>date</th></tr></thead>
+    <tbody>
+      <tr><td class="good">1.0000</td><td>1.000</td><td>1.00</td><td>1.000</td><td>1.000</td><td>internal_doc</td><td>품질보증팀</td><td>2026-08-20</td></tr>
+      <tr><td class="good">0.9211</td><td>0.921</td><td>1.00</td><td>1.000</td><td>1.000</td><td>internal_doc</td><td>품질보증팀</td><td>2026-08-20</td></tr>
+      <tr><td>0.8669</td><td>0.939</td><td>0.95</td><td class="warn">0.851</td><td>0.923</td><td>report</td><td>B증권</td><td>2026-09-01</td></tr>
+      <tr><td>0.8491</td><td>0.920</td><td>0.95</td><td class="warn">0.851</td><td>0.923</td><td>report</td><td>B증권</td><td>2026-09-01</td></tr>
+      <tr><td>0.7217</td><td>0.803</td><td>0.80</td><td>0.933</td><td>0.899</td><td>mail</td><td>사업부 기획</td><td>2026-09-02</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>칸을 어떻게 읽나</h3>
+  <div class="scroll"><table class="k">
+    <thead><tr><th>칸</th><th>무엇</th><th>범위</th></tr></thead>
+    <tbody>
+      <tr><td class="m">rel</td><td><strong>관련도</strong> — RRF 융합 점수를 1위 대비로 편 것</td><td>0~1</td></tr>
+      <tr><td class="m">weight</td><td><strong>유형 가중</strong> — 사내문서 1.00, 뉴스 0.85, 메일 0.80</td><td>0.80~1.00</td></tr>
+      <tr><td class="m">recency</td><td><strong>시의성</strong> — 유형별 반감기로 깎은 값. 사내문서는 안 깎음</td><td>0~1</td></tr>
+      <tr><td class="m">adj</td><td><strong>보정</strong> = 1 − 0.4 × (1 − weight × recency)</td><td class="good">0.6~1.0</td></tr>
+      <tr><td class="m">score</td><td><strong>최종</strong> = rel × adj</td><td>0~1</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="box b">
+    <p class="bt">★가장 중요한 함정 — 보정을 곱셈으로 걸면 안 된다</p>
+    <p>RRF 점수는 폭이 매우 좁다(1위 0.0328 ~ 10위 0.0258, <strong>차이 27%</strong>).
+      여기에 시의성(0.5~0.9)을 그대로 곱하면 <strong>보정이 관련도를 눌러 버린다.</strong></p>
+    <p>실측: <strong>벡터 1위·어휘 1위인 표준 문서가 최종 5위로 밀렸다.</strong>
+      4월 문서라 시의성 0.52 로 깎였고 그날치 무관한 뉴스(0.91)가 앞섰다.</p>
+    <p>→ <strong>시의성은 순위를 뒤집는 힘이 아니라 밀어주는 힘이어야 한다.</strong>
+      보정 힘을 <code>PRIOR=0.4</code> 로 묶어 <strong>아무리 낡아도 0.6 아래로 안 내려간다.</strong></p>
+  </div>
+
+  <h3>⑥-c 비교 실험 셀</h3>
+  <p>하이브리드를 껐다 켜서 순위 차이를 나란히 찍는다.
+    <strong>사내 문서로 바꾼 뒤 이 셀이 가장 쓸모 있다</strong> — 어휘 갈래가 실제로 도움이 되는지 바로 보인다.</p>
+</section>
+
+<!-- ⑦ ──────────────────────────────────────────── -->
+<section class="sec" id="c8">
+  <p class="sn">⑦ answer</p>
+  <h2>근거만 쓰게 하고 코드로 확인한다</h2>
+  <dl class="goal">
+    <dt>목적</dt><dd>검색 결과에 <strong>유형·출처·날짜</strong>를 붙여 AI 에 넘긴다. 답변이 근거 밖으로 나갔는지 <strong>코드가</strong> 본다.</dd>
+    <dt>남는 표</dt><dd><code>check_tbl</code> — <strong>모델이 없으면 0행</strong></dd>
+  </dl>
+
+  <h3>check_tbl — 3행 × 3칸 (모델이 붙었을 때)</h3>
+  <div class="scroll"><table class="d">
+    <thead><tr><th>check</th><th>result</th><th>detail</th></tr></thead>
+    <tbody>
+      <tr><td>출처 번호 실존</td><td class="good">통과</td><td>-</td></tr>
+      <tr><td>출처 표기 있음</td><td class="good">통과</td><td>3개</td></tr>
+      <tr><td>숫자에 근거 있음</td><td class="bad">위반</td><td>['47.3', '22']</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="scroll"><table class="k">
+    <thead><tr><th>검사</th><th>무엇을 잡나</th></tr></thead>
+    <tbody>
+      <tr><td class="m">출처 번호 실존</td><td>근거는 5건인데 <code>[9]</code> 를 인용 — <strong>없는 근거를 지어냈다</strong></td></tr>
+      <tr><td class="m">출처 표기 있음</td><td>출처 없이 서술 — <strong>어디서 왔는지 확인할 수 없다</strong></td></tr>
+      <tr><td class="m">숫자에 근거 있음</td><td>근거에 없는 수치 — <strong>가장 위험한 환각</strong></td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="box a">
+    <p class="bt">시켜만 놓고 믿지 않는다</p>
+    <p>지시문에 "근거만 쓰라" 고 적는 것으로는 부족하다.
+      <strong>코드가 확인해야 한다.</strong> 위반이 나오면 그 답변은 임원에게 보내면 안 된다.</p>
+  </div>
+</section>
+
+<!-- ⑧ ──────────────────────────────────────────── -->
+<section class="sec">
+  <p class="sn">⑧ run_once</p>
+  <h2>운영 — 새 문서가 들어오면 이 셀 하나</h2>
+
+  <div class="term"><pre><span class="dim">첫 실행</span>
+run_once : {"new_raw": 10, "new_docs": 10, "new_chunks": 36,
+            "new_vectors": 36, "failed": 0, "seconds": 0.3}
+
+<span class="dim">두 번째 — 새 문서가 없으면</span>
+run_once : {"new_raw": <span class="hi">0</span>, "new_docs": <span class="hi">0</span>, "new_chunks": <span class="hi">0</span>,
+            "new_vectors": <span class="hi">0</span>, "failed": 0, "seconds": 0.0}</pre></div>
+
+  <p><strong>매일 돌려도 안전하다.</strong> 새 문서·고쳐진 문서만 처리된다.
+    <code>failed</code> 가 0이 아니면 그 건만 실패한 것이고 나머지는 정상 처리됐다.</p>
+
+  <h3>규칙을 고쳤을 때</h3>
+  <p><code>reset()</code> 후 <code>run_once()</code>. 정규화·조각 규칙을 바꾸면
+    <strong>이미 만든 것은 자동으로 다시 안 만들어진다</strong> — 지우고 다시 돌려야 한다.</p>
+</section>
+
+<!-- 점검 순서 ──────────────────────────────────── -->
+<section class="sec">
+  <p class="sn">사내 반입</p>
+  <h2>실제 문서로 바꿨을 때 볼 순서</h2>
+
+  <ol>
+    <li><strong><code>found_tbl</code> 의 <code>access</code></strong> — 권한이 제대로 붙었나.
+      전부 '전사' 면 <strong>여기서 멈춘다</strong></li>
+    <li><strong><code>shrink_tbl</code> 의 <code>kept_pct</code></strong> — mail 이 90% 이상이면
+      사내 서식이 안 지워진 것</li>
+    <li>③-b 셀 — 무엇이 남았는지 원문과 나란히 확인</li>
+    <li><strong><code>loss_tbl</code> 의 <code>kept_pct</code></strong> — 90% 아래면 내용이 사라진 것.
+      <code>n_chunks</code> 가 1이면 절이 안 잡힌 것</li>
+    <li><strong><code>vec_tbl</code> 의 <code>model</code></strong> — <code>fake</code> 면 순위를 믿지 않는다</li>
+    <li>⑥-c 비교 실험 — 어휘 갈래가 실제로 도움이 되는지</li>
+    <li><strong><code>check_tbl</code></strong> — 위반이 있으면 지시문·근거 개수를 조정</li>
+  </ol>
+
+  <div class="box">
+    <p class="bt">모델 없이 4번까지 확인된다</p>
+    <p>①~④ 는 코드만 돈다. <strong>사내 모델을 붙이기 전에 파싱·조각이 제대로 되는지 먼저 확인하는 것</strong>이
+      순서상 맞다. 거기서 DRM·발행일·절 표기 문제가 다 드러난다.</p>
+  </div>
+</section>
+
+<p class="foot">
+  pipeline_step_by_step.py (영어 이름) · 파이프라인_한줄씩.py (한국어 이름) — 로직·결과 동일<br>
+  위 값은 샘플 문서 10건으로 실제 실행한 결과다. 사내 문서에서는 달라진다.<br>
+  API 키·엔드포인트는 코드에 없다. 전부 .env 경유이며 .env 는 커밋되지 않는다.
+</p>
+
+</div>
+</body>
+</html>
