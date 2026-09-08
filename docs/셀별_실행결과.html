@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>셀별 실행 결과 — 무엇을 보고 무엇을 확인하나</title>
+<title>센싱 보드 — 셀별 실행 결과와 화면</title>
 <style>
   :root{
     --ink:#131C18; --ink2:#2C3A33; --muted:#5F6E66;
@@ -122,14 +122,15 @@
 
 <header class="cover">
   <p class="kicker">MIS 적재·검색 파이프라인 · 학습노트</p>
-  <h1>셀별 실행 결과</h1>
+  <h1>셀별 실행 결과와 화면</h1>
   <p class="lede">셀을 하나씩 돌리면 어떤 표가 생기고, 그 표에서 무엇을 확인해야 하는지.
+    그리고 그 결과가 <b>임원 화면</b>으로 어떻게 이어지는지.
     아래 값은 샘플 문서 10건으로 실제로 돌린 결과다.</p>
   <div class="metaline">
-    <span>기준 파일 <b>pipeline_step_by_step.py</b></span>
+    <span>기준 파일 <b>sensing_pipeline.py</b></span>
     <span>샘플 <b>문서 10건 → 조각 36개</b></span>
     <span>모델 <b>미연결(가짜 벡터)</b></span>
-    <span>작성 <b>2026-09-08</b></span>
+    <span>작성 <b>2026-09-09</b></span>
   </div>
 
   <div class="index">
@@ -161,6 +162,8 @@
             <td class="q"><b>★점수가 어떻게 나왔는지</b>가 칸으로 나뉜다</td></tr>
         <tr><td class="v"><a href="#c8">check_tbl</a></td><td class="s">⑦ answer</td><td class="s">3×3</td>
             <td class="q">답변이 근거 밖으로 나갔나. <b>모델이 없으면 0행</b></td></tr>
+        <tr><td class="v"><a href="#ui">화면</a></td><td class="s">web/server.py</td><td class="s">축 5</td>
+            <td class="q"><b>★임원 화면</b> — 축·카테고리·공백·변화가 어떻게 만들어지나</td></tr>
       </tbody>
     </table></div>
   </div>
@@ -499,6 +502,110 @@
   </div>
 </section>
 
+
+<!-- 화면 ─────────────────────────────────────────── -->
+<section class="sec" id="ui">
+  <p class="sn">화면 · web/server.py</p>
+  <h2>표가 임원 화면으로 이어지는 방식</h2>
+  <p>노트북이 만든 조각·벡터를 그대로 써서 화면을 만든다.
+    <strong>로직을 다시 쓰지 않는다</strong> — 서버가 노트북을 불러 그 함수를 쓴다.</p>
+
+  <div class="term"><pre>축 (임원 관심 테마)
+ ├ 그 축의 질문으로 <span class="hi">검색 16건</span>
+ ├ <span class="hi">점수 하한</span> — 1위 대비 55% 미만은 요약에서 뺀다
+ ├ 카테고리로 나눔 — 시장 · 전망 · 기준 · 사내 · 논의
+ ├ 카테고리마다 조각을 <span class="hi">묶어서 모델에 한 번에</span>
+ └ 카테고리별 한 줄 + <span class="hi">축 판단</span> + 지난번 대비 <span class="hi">변화</span></pre></div>
+
+  <div class="box">
+    <p class="bt">축 하나당 모델을 한 번만 부른다</p>
+    <p>카테고리마다 따로 부르면 축 5개 × 카테고리 5개 = <strong>25번</strong>이 된다.
+      묶어 물으면 <strong>5번</strong>으로 끝난다. 지난 기록 대조도 같은 호출에 얹는다.</p>
+    <p><strong>축 요약은 카테고리 요약을 다시 요약한 것이 아니다.</strong>
+      같은 호출에서 <strong>원문 청크</strong>를 보고 만든다 —
+      두 번 압축하면 사내↔외부 충돌을 못 잡는다.</p>
+  </div>
+
+  <h3>실제로 나오는 축 하나</h3>
+  <div class="scroll"><table class="d">
+    <thead><tr><th>카테고리</th><th>state</th><th>근거</th><th>관련낮음</th><th>화면에 뜨는 글</th></tr></thead>
+    <tbody>
+      <tr><td>시장</td><td class="bad">none</td><td>0</td><td>0</td><td class="w">이 축에 걸린 외부 뉴스·공시가 없습니다.</td></tr>
+      <tr><td>전망</td><td class="good">ok</td><td>2</td><td>2</td><td class="w">증권사 의견이 갈린다 — A증권 중립 하향, B증권 매수 유지</td></tr>
+      <tr><td>기준</td><td class="warn">low</td><td>0</td><td>2</td><td class="w">요약할 만큼 관련 있는 근거가 없습니다 (관련 낮음 2건, 최고 0.47)</td></tr>
+      <tr><td>사내</td><td class="good">ok</td><td>2</td><td>0</td><td class="w">HBM4 초기 수율이 목표 대비 낮고 접합 불량이 주 원인</td></tr>
+      <tr><td>논의</td><td class="good">ok</td><td>1</td><td>0</td><td class="w">품질보증팀이 개선 조건 적용을 시작했다</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="scroll"><table class="k">
+    <thead><tr><th>state</th><th>뜻</th><th>화면</th></tr></thead>
+    <tbody>
+      <tr><td class="m good">ok</td><td>하한을 넘긴 근거로 요약했다</td><td>보통 행 · 출처 칩</td></tr>
+      <tr><td class="m warn">low</td><td>근거는 있으나 <b>하한을 못 넘었다</b></td><td>점선 행 · <code>관련낮음 2 ▸</code> · 눌러서 펼침</td></tr>
+      <tr><td class="m bad">none</td><td>그 유형 자료가 <b>아예 없다</b></td><td>점선 행 · <code>사내</code> 면 주황 강조</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="box b">
+    <p class="bt">★공백을 감추지 않는 것이 핵심이다</p>
+    <p>전에는 하한에 걸린 카테고리가 <strong>조용히 사라졌다.</strong>
+      "이 축에 사내 문서가 없다" 는 <strong>그 자체로 임원이 봐야 할 정보</strong>인데 가려졌다.</p>
+    <p>실측 — <strong>사내 문서가 없는 축이 3개</strong>다.
+      장비·설비투자 / 공정·표준 / 일반 DRAM·수급.
+      <strong>표준이 바뀌었는데 우리 대응 문서가 없다</strong>는 뜻이다.</p>
+  </div>
+
+  <h3>왜 하한이 몫보다 나은가 — 브리핑에서만</h3>
+  <p><strong>억지로 남긴 근거는 요약에 들어가고, 요약은 임원이 그대로 읽는다.</strong></p>
+  <div class="term"><pre><span class="dim">HBM 축에 "장비 출하 통계"(0.47)를 기준 줄로 넣으면</span>
+  <span class="al">기준: 국내 장비 출하가 18% 늘었다</span>
+  <span class="dim">→ 임원은 HBM 표준 이야기로 읽는다. 아무 관계가 없는데도.</span>
+
+<span class="dim">같은 사내문서 하나가 세 축의 '사내' 줄을 다 채우기도 한다</span>
+  DRAM 수급 0.37 · 공정 표준 0.41 · 장비투자 0.42
+  <span class="dim">→ 남기면 세 축에 똑같은 문장이 반복된다.</span></pre></div>
+
+  <div class="scroll"><table class="k">
+    <thead><tr><th></th><th>브리핑 화면</th><th>질의응답</th></tr></thead>
+    <tbody>
+      <tr><td class="m">방식</td><td class="good"><b>점수 하한</b></td><td class="good"><b>유형별 몫</b></td></tr>
+      <tr><td class="m">왜</td><td>요약이 임원에게 그대로 간다</td><td>사용자가 직접 읽고 판단한다</td></tr>
+      <tr><td class="m">어디</td><td class="m">web/server.py · CAT_FLOOR</td><td class="m">sensing_pipeline.py · search()</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>마켓 센싱으로 쓰려고 넣은 것</h3>
+  <div class="scroll"><table class="k">
+    <thead><tr><th>무엇</th><th>왜</th><th>어디</th></tr></thead>
+    <tbody>
+      <tr><td><b>점수 하한</b></td><td>빈칸을 억지로 채우면 없는 이야기를 지어낸다</td><td class="m">CAT_FLOOR=0.55</td></tr>
+      <tr><td><b>빈 카테고리 명시</b></td><td>"사내 문서가 없다" 는 그 자체로 정보다</td><td class="m">NONE_TEXT</td></tr>
+      <tr><td><b>관련 낮음은 접어서</b></td><td>날아가지도 않고 거짓말도 안 한다</td><td class="m">state="low"</td></tr>
+      <tr><td><b>지난 기록과 대조</b></td><td>센싱의 핵심은 "무엇이 <b>달라졌나</b>"</td><td class="m">briefs 표</td></tr>
+      <tr><td><b>축은 요약이 아니라 판단</b></td><td>사내↔외부가 어긋나는 곳을 먼저</td><td class="m">SUMMARY_SYSTEM</td></tr>
+      <tr><td><b>변화 큰 축이 위로</b></td><td>임원이 스크롤하지 않게</td><td class="m">move 점수</td></tr>
+      <tr><td><b>해석은 한 축, 사실은 여러 축</b></td><td>같은 뉴스가 다섯 축에 반복되면 신뢰를 잃는다</td><td class="m">used 집합</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>축을 바꾸려면</h3>
+  <div class="term"><pre><span class="dim"># web/server.py</span>
+AXES = [
+    {"no": 1, "name": "HBM · 고대역폭 메모리", "q": "HBM4 수율과 양산 일정"},
+    ...
+]</pre></div>
+  <p><code>q</code> 가 <strong>그 축을 대표하는 질문</strong>이다. 검색이 이 문장으로 돈다.
+    이 목록 하나만 고치면 화면이 바뀐다.</p>
+
+  <div class="box a">
+    <p class="bt">모델이 없을 때</p>
+    <p>축 요약 자리에 <code>요약 아님</code> 배지가 붙고 첫 조각을 잘라 쓴다.
+      <strong>구조는 전부 확인되지만 문장은 요약이 아니다.</strong>
+      <code>.env</code> 에 <code>LLM_BASE_URL</code>·<code>LLM_MODEL</code> 을 채우면 사라진다.</p>
+  </div>
+</section>
+
 <!-- ⑧ ──────────────────────────────────────────── -->
 <section class="sec">
   <p class="sn">⑧ run_once</p>
@@ -536,6 +643,9 @@ run_once : {"new_raw": <span class="hi">0</span>, "new_docs": <span class="hi">0
     <li><strong><code>vec_tbl</code> 의 <code>model</code></strong> — <code>fake</code> 면 순위를 믿지 않는다</li>
     <li>⑥-c 비교 실험 — 어휘 갈래가 실제로 도움이 되는지</li>
     <li><strong><code>check_tbl</code></strong> — 위반이 있으면 지시문·근거 개수를 조정</li>
+    <li><strong>화면</strong> — <code>python web/server.py</code>.
+      <b>사내 문서가 없는 축</b>이 몇 개인지 상단 KPI 에서 본다.
+      많으면 축 정의가 사내 자료와 안 맞는 것이다</li>
   </ol>
 
   <div class="box">
@@ -546,7 +656,7 @@ run_once : {"new_raw": <span class="hi">0</span>, "new_docs": <span class="hi">0
 </section>
 
 <p class="foot">
-  pipeline_step_by_step.py (영어 이름) · 파이프라인_한줄씩.py (한국어 이름) — 로직·결과 동일<br>
+  sensing_pipeline.py (노트북) · web/server.py (화면) — 같은 로직을 본다<br>
   위 값은 샘플 문서 10건으로 실제 실행한 결과다. 사내 문서에서는 달라진다.<br>
   API 키·엔드포인트는 코드에 없다. 전부 .env 경유이며 .env 는 커밋되지 않는다.
 </p>
