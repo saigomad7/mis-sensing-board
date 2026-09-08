@@ -937,6 +937,25 @@ SUMMARY_SYSTEM = """자료를 카테고리별로 한 줄씩 요약하고, 축 �
 ★특히 `사내:` 가 없으면 `축:` 에 "사내 대응 문서가 없다" 는 점을 반드시 적습니다."""
 
 
+_문장 = re.compile(r"(?<=[.!?])\s+|(?<=[다음함임])\.\s+")
+
+
+def extract(hs, per=2, limit=150):
+    """모델 없이 여러 조각을 잇는다 — **발췌**. 지어내지 않는다.
+
+    조각마다 앞 문장 몇 개씩만 골라 이어 붙인다.
+    요약은 아니지만 "몇 건을 묶었다" 는 것이 눈에 보인다.
+    """
+    조각글 = []
+    for h in hs:
+        본문 = re.sub(r"^\s*##?\s*\S+\s*", "", (h["body"] or "").strip())
+        문장들 = [s.strip() for s in _문장.split(본문.replace("\n", " ")) if s.strip()]
+        고름 = " ".join(문장들[:per])[:limit]
+        if 고름:
+            조각글.append("%s: %s" % (h["org"] or "-", 고름))
+    return " │ ".join(조각글)
+
+
 def summarize(groups, last=None):
     """카테고리별 조각 묶음 → {카테고리: 한 줄, "축": …, "변화": …}
 
@@ -964,12 +983,19 @@ def summarize(groups, last=None):
         프롬프트 += "\n\n[지난 기록]\n" + last
     text = tools.generate(SUMMARY_SYSTEM, 프롬프트, CFG)
 
-    if not text:                                  # 모델이 없으면 — 첫 조각을 줄여 쓴다
-        out = {k: ((hs[0]["body"] or "").replace("\n", " ")[:90])
-               for k, hs in groups.items()}
-        top = groups.get("사내") or next(iter(groups.values()))
-        out["축"] = (top[0]["body"] or "").replace("\n", " ")[:90]
-        out["_raw"] = True                        # ★요약이 아니라 원문 조각이다
+    if not text:
+        # ★모델이 없을 때 — **원문에서 뽑아 잇는다**(발췌).
+        #   전에는 첫 조각만 잘라 써서 나머지 조각이 통째로 버려졌다.
+        #   "전망 2건" 인데 화면에는 한 건만 보이니 묶었다는 느낌이 안 났다.
+        #   지어내지 않는다 — 원문 문장을 그대로 골라 잇기만 한다.
+        out = {k: extract(hs) for k, hs in groups.items()}
+        # 축 줄 — 모델이 없으니 판단을 만들 수 없다. **무엇이 있는지만** 알린다.
+        있는것 = [k for k in ROW_ORDER if k in out]
+        없는것 = [k for k in ROW_ORDER if k not in out]
+        out["축"] = "모델이 없어 판단을 만들지 못했습니다. 근거는 %s 에 있고%s." % (
+            " · ".join("%s %d건" % (k, len(groups[k])) for k in 있는것),
+            (", %s 는 비어 있습니다" % " · ".join(없는것)) if 없는것 else "")
+        out["_raw"] = True                        # ★요약이 아니라 원문 발췌다
         return out
 
     out = {}

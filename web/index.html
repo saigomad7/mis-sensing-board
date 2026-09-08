@@ -196,9 +196,12 @@ async function load(){
   render(d);
   $("#mode").innerHTML = d.live
     ? `<b>사내 모델 연결됨</b> — ${esc(d.model)} · ${d.ms}ms`
-    : `<b>가짜 벡터로 도는 중입니다.</b> 흐름은 전부 확인되지만 <b>순위는 믿지 마십시오.</b>
-       <code>.env</code> 에 EMBED_BASE_URL·EMBED_MODEL 을 채우고
-       <code>embed_all(redo=True)</code> 로 다시 만드십시오.`;
+    : `<b>모델이 붙어 있지 않습니다.</b><br>
+       · 임베딩 없음 → 순위를 믿지 마십시오. <code>EMBED_BASE_URL</code>·<code>EMBED_MODEL</code>
+         을 채우고 <code>embed_all(redo=True)</code><br>
+       · 생성 없음 → <b>요약이 만들어지지 않아 원문을 발췌해 잇고 있습니다.</b>
+         <code>LLM_BASE_URL</code>·<code>LLM_MODEL</code> 을 채우면 카테고리별 한 줄 요약과
+         축 판단이 나옵니다.`;
 }
 
 function render(d){
@@ -253,7 +256,7 @@ function render(d){
         </div>`;
       }).join("");
       h += `<div class="axis">${head}<div class="axis-b">
-        <p class="lead">${esc(a.lead)}${a.raw ? '<span class="warn">요약 아님</span>' : ''}</p>
+        <p class="lead">${esc(a.lead)}${a.raw ? '<span class="warn">원문 발췌</span>' : ''}</p>
         <div class="rows">${rows}</div>
         ${hidden.length ? `<div class="gapline" data-gap="${a.no}">
           ${hidden.map(r => esc(r.label)).join(" · ")} 근거 없음
@@ -265,7 +268,7 @@ function render(d){
                <b>${esc(s.chip)} ${esc(s.org)} ${esc(s.date)}</b></div>`)).join("") +
           `</div>` : ""}` : ""}
         ${a.change ? `<div class="chg"><u>지난번과 달라진 점</u>${esc(a.change)}</div>` : ""}
-        <div class="imp"><u>${a.raw ? "요약 아님 — 근거 첫 줄" : "축 판단"}</u>
+        <div class="imp"><u>${a.raw ? "★생성 모델 미연결 — 판단을 만들지 못함" : "축 판단"}</u>
           <p>${esc(a.lead)}</p></div>
         <div style="font-size:10.5px;color:var(--faint);margin-top:9px;
              font-family:'Geist Mono',ui-monospace,monospace">검색어 · ${esc(a.q)}</div>
