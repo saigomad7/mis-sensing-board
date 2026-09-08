@@ -119,6 +119,10 @@
   .row.gap.inside .txt{color:#8a4200;font-style:normal}
   .more{font-size:9.5px;color:var(--faint);white-space:nowrap;padding-top:3px;
     font-family:"Geist Mono",ui-monospace,monospace}
+  .gapline{margin-top:8px;font-size:10.5px;color:var(--faint);cursor:pointer;
+    padding:6px 11px;border-radius:8px;background:var(--tint)}
+  .gapline:hover{background:#eef2f8}
+  .gapline span{float:right;font-family:"Geist Mono",ui-monospace,monospace}
   .chk{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
   .chk span{font-size:10px;padding:3px 9px;border-radius:999px;font-weight:700}
   .chk .ok{background:#e6f9f2;color:#00845e}
@@ -162,6 +166,7 @@ const $ = s => document.querySelector(s);
 const esc = t => (t||"").replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
 let open = 1;                       // 펼쳐 둘 축 번호
 const openEv = new Set();           // 근거를 펼쳐 둔 행
+const openGap = new Set();          // 관련낮음을 펼쳐 둔 축
 
 async function load(){
   const acc = $("#access").value;
@@ -204,7 +209,12 @@ function render(d){
         <span class="cnt">근거 ${a.count}${a.dropped?` · 제외 ${a.dropped}`:""}</span></div>`;
     if (a.empty){ h += `<div class="axis">${head}<div class="empty">${esc(a.lead)}</div></div>`; continue; }
     if (a.no === open){
-      const rows = a.rows.map((r,ri) => {
+      // ★공백을 행으로 다 늘어놓으면 화면이 어수선해진다.
+      //   근거 있는 행만 보이고, 나머지는 아래 한 줄로 접는다.
+      //   다만 '사내' 가 비면 그것만은 행으로 남긴다 — 그게 임원이 볼 정보다.
+      const shown = a.rows.filter(r => r.state === "ok" || r.label === "사내");
+      const hidden = a.rows.filter(r => !shown.includes(r));
+      const rows = shown.map((r,ri) => {
         const key = `${a.no}-${ri}`;
         const gap = r.state !== "ok";
         const cls = "row" + (gap ? " gap" : "") + (gap && r.label === "사내" ? " inside" : "");
@@ -225,7 +235,16 @@ function render(d){
       }).join("");
       h += `<div class="axis">${head}<div class="axis-b">
         <p class="lead">${esc(a.lead)}${a.raw ? '<span class="warn">요약 아님</span>' : ''}</p>
-        <div class="rows">${rows || '<div class="row"><div class="lbl">—</div><div class="txt">이 축에 걸린 근거가 없습니다.</div><div class="src"></div></div>'}</div>
+        <div class="rows">${rows}</div>
+        ${hidden.length ? `<div class="gapline" data-gap="${a.no}">
+          ${hidden.map(r => esc(r.label)).join(" · ")} 근거 없음
+          ${hidden.some(r=>r.low.length) ? `<span>관련낮음 ${
+            hidden.reduce((s,r)=>s+r.low.length,0)}건 ▸</span>` : ""}
+        </div>${openGap.has(a.no) ? `<div class="ev" style="margin-top:6px">` +
+          hidden.flatMap(r => r.low.map(s =>
+            `<div><b>${s.score}</b><span style="color:#9aa2ae">[${esc(r.label)}] ${esc(s.body)}</span>
+               <b>${esc(s.chip)} ${esc(s.org)} ${esc(s.date)}</b></div>`)).join("") +
+          `</div>` : ""}` : ""}
         ${a.change ? `<div class="chg"><u>지난번과 달라진 점</u>${esc(a.change)}</div>` : ""}
         <div class="imp"><u>${a.raw ? "요약 아님 — 근거 첫 줄" : "축 판단"}</u>
           <p>${esc(a.lead)}</p></div>
@@ -240,6 +259,13 @@ function render(d){
   $("#brief").innerHTML = h;
   document.querySelectorAll(".axis-h").forEach(el =>
     el.onclick = () => { open = +el.dataset.no; openEv.clear(); render(d); });
+  document.querySelectorAll(".gapline[data-gap]").forEach(el =>
+    el.onclick = e => {
+      e.stopPropagation();
+      const k = +el.dataset.gap;
+      openGap.has(k) ? openGap.delete(k) : openGap.add(k);
+      render(d);
+    });
   document.querySelectorAll(".row[data-ev]").forEach(el =>
     el.onclick = () => {
       const k = el.dataset.ev;
