@@ -129,6 +129,20 @@
     padding:6px 11px;border-radius:8px;background:var(--tint)}
   .gapline:hover{background:#eef2f8}
   .gapline span{float:right;font-family:"Geist Mono",ui-monospace,monospace}
+  .cmpline{margin-top:6px;font-size:10.5px;color:var(--blue);cursor:pointer;
+    padding:6px 11px;border-radius:8px;background:var(--blue-soft)}
+  .cmpline:hover{filter:brightness(.97)}
+  .cmpline span{float:right;font-family:"Geist Mono",ui-monospace,monospace}
+  .cmp{margin-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .cmp>div{background:var(--tint);border-radius:9px;padding:9px 11px}
+  .cmp u{text-decoration:none;display:block;font-size:9.5px;font-weight:700;
+    color:var(--faint);margin-bottom:6px;letter-spacing:.3px}
+  .cmp p{margin:0 0 5px;font-size:10.5px;line-height:1.55;color:var(--mut)}
+  .cmp p b{font-family:"Geist Mono",ui-monospace,monospace;color:var(--faint);font-weight:400}
+  .cmp p i{font-style:normal;font-size:9px;padding:1px 5px;border-radius:4px;
+    background:#fff;border:1px solid var(--line);margin-right:4px}
+  .cmp em{font-style:normal;color:var(--accent);font-weight:700;font-size:9px}
+  @media(max-width:720px){.cmp{grid-template-columns:1fr}}
   .chk{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
   .chk span{font-size:10px;padding:3px 9px;border-radius:999px;font-weight:700}
   .chk .ok{background:#e6f9f2;color:#00845e}
@@ -146,6 +160,9 @@
       <i class="on" data-t="brief">주제축 브리핑</i><i data-t="ask">문서 검색</i>
     </div>
     <div class="when">
+      <label class="sel" style="cursor:pointer;user-select:none">
+        <input type="checkbox" id="cmp" style="vertical-align:-1px;margin-right:4px"> 검증
+      </label>
       <select class="sel" id="access">
         <option value="전사">권한 전사</option>
         <option value="부서">권한 부서</option>
@@ -173,6 +190,8 @@ const esc = t => (t||"").replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&g
 let open = 1;                       // 펼쳐 둘 축 번호
 const openEv = new Set();           // 근거를 펼쳐 둔 행
 const openGap = new Set();          // 관련낮음을 펼쳐 둔 축
+const openCmp = new Set();          // 검증(갈래 비교)을 펼쳐 둔 축
+let compare = false;                // 상단 '검증' 스위치
 
 async function load(){
   const acc = $("#access").value;
@@ -189,7 +208,8 @@ async function load(){
     document.querySelectorAll(".load i[data-s]").forEach(el =>
       el.classList.toggle("on", +el.dataset.s === si));
   }, 2500);
-  const d = await (await fetch(`/api/brief?access=${encodeURIComponent(acc)}`)).json();
+  const d = await (await fetch(
+    `/api/brief?access=${encodeURIComponent(acc)}${compare ? "&compare=1" : ""}`)).json();
   clearInterval(timer);
   if (d.error) { $("#brief").innerHTML = `<div class="load">오류 — ${esc(d.error)}</div>`; return; }
   $("#stamp").textContent = `${d.generated} 생성 · 다음 ${d.next}`;
@@ -270,6 +290,18 @@ function render(d){
         ${a.change ? `<div class="chg"><u>지난번과 달라진 점</u>${esc(a.change)}</div>` : ""}
         <div class="imp"><u>${a.raw ? "★생성 모델 미연결 — 판단을 만들지 못함" : "축 판단"}</u>
           <p>${esc(a.lead)}</p></div>
+        ${a.compare ? `<div class="cmpline" data-cmp="${a.no}">
+          검증 · 하이브리드로 순위 ${a.compare.moved}건이 바뀌었고 ${a.compare.added}건이 새로 들어왔습니다
+          <span>${openCmp.has(a.no) ? "▾" : "▸"}</span></div>
+          ${openCmp.has(a.no) ? `<div class="cmp">
+            <div><u>벡터만 (하이브리드 끔)</u>${a.compare.vec.map(x =>
+              `<p><b>${x.rank}.</b> <i class="${x.tier}">${esc(x.chip)}</i>${esc(x.org)}
+                 — ${esc(x.body.slice(0,52))}</p>`).join("")}</div>
+            <div><u>하이브리드 + RRF + MMR</u>${a.compare.hyb.map(x =>
+              `<p><b>${x.rank}.</b> <i class="${x.tier}">${esc(x.chip)}</i>${esc(x.org)}
+                 ${x.was ? `<b>(벡터 ${x.was}위)</b>` : `<em>★새로</em>`}
+                 — ${esc(x.body.slice(0,52))}</p>`).join("")}</div>
+          </div>` : ""}` : ""}
         <div style="font-size:10.5px;color:var(--faint);margin-top:9px;
              font-family:'Geist Mono',ui-monospace,monospace">검색어 · ${esc(a.q)}</div>
       </div></div>`;
@@ -281,6 +313,13 @@ function render(d){
   $("#brief").innerHTML = h;
   document.querySelectorAll(".axis-h").forEach(el =>
     el.onclick = () => { open = +el.dataset.no; openEv.clear(); render(d); });
+  document.querySelectorAll(".cmpline[data-cmp]").forEach(el =>
+    el.onclick = e => {
+      e.stopPropagation();
+      const k = +el.dataset.cmp;
+      openCmp.has(k) ? openCmp.delete(k) : openCmp.add(k);
+      render(d);
+    });
   document.querySelectorAll(".gapline[data-gap]").forEach(el =>
     el.onclick = e => {
       e.stopPropagation();
@@ -325,6 +364,7 @@ async function askNow(){
 
 $("#go").onclick = askNow;
 $("#q").onkeydown = e => { if (e.key === "Enter") askNow(); };
+$("#cmp").onchange = e => { compare = e.target.checked; openCmp.clear(); load(); };
 $("#access").onchange = () => {
   if ($("#ask").style.display === "none") load(); else askNow();
 };

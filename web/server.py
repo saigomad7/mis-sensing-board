@@ -85,7 +85,8 @@ class Handler(BaseHTTPRequestHandler):
             if u.path == "/api/brief":
                 return self._send(200, json.dumps(build_brief(
                     q.get("access", ["전사"])[0],
-                    int(q.get("days", ["14"])[0])), ensure_ascii=False))
+                    int(q.get("days", ["14"])[0]),
+                    compare=q.get("compare", ["0"])[0] == "1"), ensure_ascii=False))
             if u.path == "/api/ask":
                 return self._send(200, json.dumps(ask(
                     q.get("q", [""])[0], q.get("access", ["전사"])[0]),

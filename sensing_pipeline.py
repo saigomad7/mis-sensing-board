@@ -779,10 +779,14 @@ tools.show(hits_tbl, width=26)
 # %% ═══════════════════════════════════════════════════════════════
 #  ⑥-c 비교 실험 — 하이브리드가 순위를 얼마나 고치나
 # ══════════════════════════════════════════════════════════════════
-for label, opt in (("vector only", dict(hybrid=False, use_mmr=False)),
-                   ("hybrid + RRF + MMR", dict())):
-    print("▶ %s" % label)
-    for i, h in enumerate(search(query, k=5, access="제한", **opt), 1):
+#  ★사내 문서로 바꾼 뒤 이 셀이 가장 쓸모 있다.
+#    어휘 갈래가 실제로 도움이 되는지, 오히려 방해가 되는지 바로 보인다.
+#  같은 것을 화면에서도 볼 수 있다 — 상단 '검증' 을 켜면 축마다 접힌 채로 나온다.
+
+for 이름, 옵션 in (("vector only", dict(hybrid=False, use_mmr=False)),
+                 ("hybrid + RRF + MMR", dict())):
+    print("▶ %s" % 이름)
+    for i, h in enumerate(search(query, k=5, access="제한", **옵션), 1):
         print("   %d. [%.4f] %-14s %-11s %s" % (
             i, h["score"], h["mtype"], (h["org"] or "-")[:11],
             (h["body"] or "").replace("\n", " ")[:44]))
@@ -1008,7 +1012,36 @@ def summarize(groups, last=None):
     return out
 
 
-def build_axis(ax, access="전사", days=14, used=None, last=None):
+def compare_lanes(ax, access="전사", k=5):
+    """⑥-c 를 화면에서도 볼 수 있게 — 하이브리드를 껐을 때와 켰을 때.
+
+    ★사내 문서로 바꾼 뒤 이것이 가장 쓸모 있다.
+      어휘 갈래가 실제로 도움이 되는지, 아니면 오히려 방해가 되는지 바로 보인다.
+    ★모델을 부르지 않는다. 검색만 두 번 돈다(축당 약 0.06초).
+    """
+    벡터만 = search(ax["q"], k=k, access=access, hybrid=False, use_mmr=False)
+    하이브리드 = search(ax["q"], k=k, access=access)
+    a_ids = [h["id"] for h in 벡터만]
+    b_ids = [h["id"] for h in 하이브리드]
+
+    def _줄(hs, other):
+        out = []
+        for i, h in enumerate(hs, 1):
+            was = other.index(h["id"]) + 1 if h["id"] in other else None
+            out.append({"rank": i, "was": was,
+                        "chip": CHIP.get(h["mtype"], h["mtype"]),
+                        "tier": TIER.get(h["mtype"], ""),
+                        "org": h["org"] or "-", "score": h["score"],
+                        "body": (h["body"] or "").replace("\n", " ")[:110]})
+        return out
+
+    바뀐수 = sum(1 for i, x in enumerate(b_ids) if i >= len(a_ids) or a_ids[i] != x)
+    새로들어온 = len([x for x in b_ids if x not in a_ids])
+    return {"vec": _줄(벡터만, b_ids), "hyb": _줄(하이브리드, a_ids),
+            "moved": 바뀐수, "added": 새로들어온}
+
+
+def build_axis(ax, access="전사", days=14, used=None, last=None, compare=False):
     """축 하나 → 화면 한 장.
 
     ★해석(뉴스·리포트·기관)은 먼저 잡은 축이 가져간다 — 같은 뉴스가
@@ -1077,6 +1110,7 @@ def build_axis(ax, access="전사", days=14, used=None, last=None):
 
     쓴것 = sum(len(v) for v in groups.values())
     fresh = sum(1 for v in groups.values() for h in v if is_fresh(h["date"], days))
+    비교 = compare_lanes(ax, access) if compare else None
     change = (summary.get("변화") or "").strip()
     change = "" if change in ("없음", "-", "") else change
 
@@ -1087,7 +1121,7 @@ def build_axis(ax, access="전사", days=14, used=None, last=None):
             "change": change, "raw": raw, "count": 쓴것, "new": fresh,
             "cont": 쓴것 - fresh, "dropped": dropped, "dup": dup,
             "gaps": [r["label"] for r in rows if r["state"] != "ok"],
-            "empty": False, "move": move}
+            "compare": 비교, "empty": False, "move": move}
 
 
 def is_fresh(d, days=14):
@@ -1153,13 +1187,14 @@ def save_record(ax, access):
     conn.commit()
 
 
-def build_brief(access="전사", days=14, save=True):
+def build_brief(access="전사", days=14, save=True, compare=False):
     """축 전부 → 브리핑 한 장. **변화가 큰 축이 위로.**"""
     t0 = time.time()
     used = set()                                  # 해석 근거를 축끼리 나눠 갖게
     axes = []
     for a in AXES:
-        ax = build_axis(a, access, days, used=used, last=last_record(a["no"], access))
+        ax = build_axis(a, access, days, used=used,
+                        last=last_record(a["no"], access), compare=compare)
         axes.append(ax)
         if save and not ax["empty"]:
             save_record(ax, access)
